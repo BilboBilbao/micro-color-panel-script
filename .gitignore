@@ -1,0 +1,17 @@
+panel.log*
+__pycache__/
+.pytest_cache/
+reports/
+bindings.json
+tabs.json
+*.bak.json
+.vscode/
+
+# Local-only working documents (not published)
+docs/HISTORY.md
+docs/archive/
+docs/REVIEW_*.md
+CLAUDE.md
+
+# Output of tools/record_buttons.py (the committed recordings stay)
+recordings/buttons_new.json

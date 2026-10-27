@@ -1,0 +1,5 @@
+{
+  "_info": "Example file. Copy it to bindings.json (same folder) and change the copy. Help: docs/BINDINGS.md. Names that start with an underscore are notes, the program ignores them. 'user' sends shift+s (Resolve: add a node before the current one). '_shift_up+user' sends ctrl+alt+k (Resolve: open the Keyboard Shortcuts menu) and is switched off: remove the leading underscore from its name to activate it.",
+  "user": { "type": "keys", "keys": "shift+s" },
+  "_shift_up+user": { "type": "keys", "keys": "ctrl+alt+k" }
+}
