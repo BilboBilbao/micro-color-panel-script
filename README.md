@@ -23,7 +23,8 @@ All code in this project was written by an AI: Claude, made by Anthropic. For mo
 | Windows 11, USB cable | tested |
 | DaVinci Resolve 21 Studio (21.0.4.5 and 21.1.0.17) | tested |
 | Python 3.11 and 3.14 | tested |
-| Other Python versions | untested |
+| Python 3.12 and 3.13 | untested |
+| Python older than 3.11 | no planned testing |
 | Automatic tests without a panel (GitHub Actions: Windows, macOS, Linux; Python 3.11 and 3.14) | run on every change |
 | Windows 10 | untested |
 | Resolve 19 and 20, Resolve free edition | untested |
