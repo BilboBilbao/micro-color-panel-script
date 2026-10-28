@@ -78,7 +78,7 @@ def profile_problems(data):
         reports = {}
     _number(device.get("vid"), "device.vid", problems, 0, 0xFFFF)
     _number(device.get("pid"), "device.pid", problems, 0, 0xFFFF)
-    _number(device.get("hid_interface"), "device.hid_interface", problems, 0, 255)
+    _number(device.get("hid_usage_page"), "device.hid_usage_page", problems, 0, 0xFFFF)
     button_report = _number(reports.get("buttons"), "reports.buttons", problems, 0, 255)
 
     names, buttons, used, spans = set(), set(), {}, []

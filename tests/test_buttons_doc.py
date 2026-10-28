@@ -27,7 +27,7 @@ def small_profile_data():
 
     data = {
         "profile_version": 2,
-        "device": {"name": "Test panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_interface": 2},
+        "device": {"name": "Test panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_usage_page": "0xFF00"},
         "reports": {"buttons": "0x02"},
         "controls": [
             button("undo", 3, 0), button("delete", 3, 2), button("user", 3, 6),

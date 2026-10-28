@@ -36,6 +36,10 @@ def bad_vid(d):
     d["device"]["vid"] = "zzz"
 
 
+def bad_usage_page(d):
+    d["device"]["hid_usage_page"] = "zzz"
+
+
 def bad_width(d):
     control(d, "ylift_knob_turn")["channels"][0]["width"] = 20
 
@@ -91,7 +95,7 @@ def rotary_without_channels(d):
 DEFECTS = [
     (duplicate_position, "use the same position"), (unknown_type, "unknown type"),
     (drop_shift_up, "required control 'shift_up'"), (bad_free_binding, "not a valid binding name"),
-    (bad_vid, "device.vid"), (bad_width, "width must be one of"), (bad_positive, "positive must be one of"),
+    (bad_vid, "device.vid"), (bad_usage_page, "device.hid_usage_page"), (bad_width, "width must be one of"), (bad_positive, "positive must be one of"),
     (missing_axis, "channel for axis y is missing"), (axis_listed_twice, "listed twice"),
     (axis_not_allowed, "not allowed for ring"), (overlapping_channels, "overlap"),
     (channel_in_button_report, "is the button report"), (channel_too_long, "do not fit"),

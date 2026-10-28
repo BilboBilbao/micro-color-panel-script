@@ -300,14 +300,14 @@ def step_panel(ctx):
         ctx.add("SKIP", "Panel: no valid device profile")
         return
     entries = hid.enumerate(profile.vid, profile.pid)
-    mine = [d for d in entries if d.get("interface_number") == profile.interface]
+    mine = [d for d in entries if d.get("usage_page") == profile.usage_page]
     if not mine:
         ctx.add("FAIL", "Panel not found (is it connected and switched on? is the Blackmagic panel driver installed?)")
         return
     d = mine[0]
     bus = d.get("bus_type")
     ctx.bus = BUS_TYPES.get(bus, str(bus)) if bus is not None else None
-    ctx.add("PASS", f"Panel found: interface {profile.interface} of {len(entries)} listed interface(s)")
+    ctx.add("PASS", f"Panel found: {len(mine)} of {len(entries)} listed entry(ies) with usage page {profile.usage_page:#06x}")
     ctx.add("INFO", f"Panel: product '{d.get('product_string') or '?'}', manufacturer '{d.get('manufacturer_string') or '?'}'")
     ctx.add("INFO", f"Connection type reported by the hid library: {ctx.bus or 'not provided by this version of the library'}")
     try:
@@ -675,7 +675,7 @@ def step_order_rule(ctx):
 
 def panel_listed(profile):
     import hid
-    return any(d.get("interface_number") == profile.interface for d in hid.enumerate(profile.vid, profile.pid))
+    return any(d.get("usage_page") == profile.usage_page for d in hid.enumerate(profile.vid, profile.pid))
 
 
 def step_unplug(ctx):

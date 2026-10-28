@@ -15,7 +15,7 @@ movement it skips the step), q stops the whole recording.
 The trackball is a free ball: a diagonal movement simply moves both axes at the same time.
 
 Notes:
-  - Nothing is sent to the panel. Only interface 2 is read, as in the other tools.
+  - Nothing is sent to the panel. Only the panel's HID entry (usage page 0xFF00) is read.
   - Resolve must be running (without Resolve the panel sent no reports in a measurement), and Resolve
     reacts to the movements. Use a test project. The tool changes nothing in Resolve itself.
   - Elements already present in rotary_raw.json are skipped. To record one again, delete its entry (or the file).
@@ -252,10 +252,10 @@ def open_panel():
                          "(on the laptop for example: py -3.11 tools\\record_rotary.py).")
     profile = json.loads(PROFILE_FILE.read_text(encoding="utf-8-sig"))
     vid, pid = int(profile["device"]["vid"], 0), int(profile["device"]["pid"], 0)
-    interface = int(profile["device"]["hid_interface"])
-    path = next((d["path"] for d in hid.enumerate(vid, pid) if d["interface_number"] == interface), None)
+    usage_page = int(profile["device"]["hid_usage_page"], 0)
+    path = next((d["path"] for d in hid.enumerate(vid, pid) if d["usage_page"] == usage_page), None)
     if path is None:
-        raise SystemExit("Panel (interface 2) not found. Is it connected and is Resolve running?")
+        raise SystemExit("Panel not found. Is it connected and is Resolve running?")
     dev = hid.device()
     dev.open_path(path)
     return dev

@@ -35,7 +35,7 @@ FREE_BINDINGS = [
     "shift_up+backward", "shift_up+forward", "shift_up+stop",
 ]
 
-DEVICE = {"name": "DaVinci Resolve Micro Color Panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_interface": 2}
+DEVICE = {"name": "DaVinci Resolve Micro Color Panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_usage_page": "0xFF00"}
 REPORTS = {"buttons": "0x02", "trackballs_rings": "0x05", "knobs": "0x06"}
 INFO = ("Hardware facts of the DaVinci Resolve Micro Color Panel. Buttons and knob presses: a bit in report 0x02. "
         "Knobs, trackballs and rings: 'channels', each a signed little-endian number in report 0x05 or 0x06 that holds the "

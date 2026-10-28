@@ -13,7 +13,7 @@ def raw_profile():
 
 
 def test_shipped_profile_is_valid(profile):
-    assert (profile.vid, profile.pid, profile.interface, profile.report_id) == (0x1EDB, 0xDA0F, 2, 2)
+    assert (profile.vid, profile.pid, profile.usage_page, profile.report_id) == (0x1EDB, 0xDA0F, 0xFF00, 2)
     assert len(profile.buttons) == 52
     assert len(set(profile.buttons.values())) == 52                  # no position used twice
     assert {"shift_up", "shift_down"} <= set(profile.buttons)

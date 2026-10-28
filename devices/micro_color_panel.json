@@ -1,7 +1,7 @@
 {
   "_info": "Hardware facts of the DaVinci Resolve Micro Color Panel. Buttons and knob presses: a bit in report 0x02. Knobs, trackballs and rings: 'channels', each a signed little-endian number in report 0x05 or 0x06 that holds the change since the previous report (a delta), positive in the direction named by 'positive'. Restart the program after editing this file.",
   "profile_version": 2,
-  "device": {"name": "DaVinci Resolve Micro Color Panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_interface": 2},
+  "device": {"name": "DaVinci Resolve Micro Color Panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_usage_page": "0xFF00"},
   "reports": {"buttons": "0x02", "trackballs_rings": "0x05", "knobs": "0x06"},
   "controls": [
     {"name": "auto_color", "type": "button", "byte": 2, "bit": 4},

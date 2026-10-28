@@ -32,7 +32,7 @@ class Profile:
     name: str
     vid: int
     pid: int
-    interface: int
+    usage_page: int
     report_id: int
     buttons: dict          # control name -> (byte, bit) in the button report
     free_bindings: list    # bindings without a native Resolve function
@@ -72,9 +72,9 @@ def parse_profile(data):
     device, reports = data["device"], data["reports"]
     vid = _int_field(device.get("vid"), "device.vid", errors, 0, 0xFFFF)
     pid = _int_field(device.get("pid"), "device.pid", errors, 0, 0xFFFF)
-    interface = _int_field(device.get("hid_interface"), "device.hid_interface", errors, 0, 255)
+    usage_page = _int_field(device.get("hid_usage_page"), "device.hid_usage_page", errors, 0, 0xFFFF)
     report_id = _int_field(reports.get("buttons"), "reports.buttons", errors, 0, 255)
-    if vid is None or pid is None or interface is None or report_id is None:
+    if vid is None or pid is None or usage_page is None or report_id is None:
         return None, errors
 
     buttons, rotary_channels = {}, {}
@@ -84,5 +84,5 @@ def parse_profile(data):
         else:
             rotary_channels[c["name"]] = (c["type"], tuple(
                 Channel(ch["axis"], ch["report"], ch["byte"], ch["width"], ch["positive"]) for ch in c["channels"]))
-    return Profile(str(device.get("name", "unknown device")), vid, pid, interface, report_id,
+    return Profile(str(device.get("name", "unknown device")), vid, pid, usage_page, report_id,
                    buttons, list(data["free_bindings"]), rotary_channels), []
