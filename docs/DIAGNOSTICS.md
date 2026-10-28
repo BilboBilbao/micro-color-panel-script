@@ -2,7 +2,7 @@
 
 ## Quick reference (TLDR)
 
-Start everything from the project folder. If `python` is not Python 3.11 on your computer, write `py -3.11` instead of `python`.
+Start everything from the project folder. If `python` is not one of Python 3.11 to 3.14 on your computer, write for example `py -3.11` instead of `python`.
 
 | Command | What it does |
 |---|---|
@@ -48,7 +48,7 @@ The file rotates automatically (500 KB, two backups). Fields are `key=value`, va
 | event | level | fields | meaning |
 |---|---|---|---|
 | `start` | INFO | version, python, os | program started |
-| `python_version_note` | INFO | | the Python version differs from the tested one (3.11); only a hint, the program runs |
+| `python_version_note` | INFO | | the Python version is outside the tested range (3.11 to 3.14); only a hint, the program runs |
 | `trace_on` | INFO | | `--trace` is active |
 | `instance_blocked` | ERROR | | a second instance was started and exits |
 | `profile_loaded` | INFO | name, buttons, rotary_decoded | device profile loaded (buttons, rotary elements) |
@@ -85,7 +85,7 @@ Install the required packages with this command, started in the project folder:
     python -m pip install -r requirements.txt
 ```
 
-If the Python version is not 3.11, the text adds: newer Python versions often have no ready-made packages yet, and the program can be started with `py -3.11 panel_main.py` after installing Python 3.11. With `pythonw` (no console) nothing is shown; start the program once with `python panel_main.py` to see the message.
+If the Python version is outside 3.11 to 3.14, the text adds the version hint (tested range, try Python 3.11 to 3.14). With `pythonw` (no console) nothing is shown; start the program once with `python panel_main.py` to see the message.
 
 The Python version alone is never a reason to stop: the program only logs the hint `python_version_note` (and the diagnose shows it as INFO).
 
@@ -118,7 +118,7 @@ If a check crashes by itself, the FAIL line names the error, a shortened message
 
 ### Part A: environment, configuration, panel, Resolve (automatic)
 
-Program, Python and system version (with a hint if Python is not 3.11); versions of the packages; the device profile; `bindings.json` and `tabs.json` (counts and warnings); monitors with position, size and scale, and whether every click point lies inside a monitor (if not, a hint says that `tabs.json` probably comes from another computer and must be calibrated again with `python tools\calibration.py`); the panel (found, product name, connection type if the hid library provides it, opened read-only); whether another instance runs, and (Windows) that a second instance is blocked (the check starts the program with the internal option `--no-log-file` and verifies that the real `panel.log` was not changed); whether Resolve runs (the `tasklist` output is read as raw bytes, so a localized text with umlauts cannot crash the step), file information of `Resolve.exe` and installed programs with "DaVinci" in the name; whether the foreground detection works; which of the key names of the program (the list in `micropanel/keys.py`, documented in `BINDINGS.md`) the key table of this system does not know (`INFO` with the list, never a FAIL; useful on another operating system).
+Program, Python and system version (with a hint if Python is outside 3.11 to 3.14); versions of the packages; the device profile; `bindings.json` and `tabs.json` (counts and warnings); monitors with position, size and scale, and whether every click point lies inside a monitor (if not, a hint says that `tabs.json` probably comes from another computer and must be calibrated again with `python tools\calibration.py`); the panel (found, product name, connection type if the hid library provides it, opened read-only); whether another instance runs, and (Windows) that a second instance is blocked (the check starts the program with the internal option `--no-log-file` and verifies that the real `panel.log` was not changed); whether Resolve runs (the `tasklist` output is read as raw bytes, so a localized text with umlauts cannot crash the step), file information of `Resolve.exe` and installed programs with "DaVinci" in the name; whether the foreground detection works; which of the key names of the program (the list in `micropanel/keys.py`, documented in `BINDINGS.md`) the key table of this system does not know (`INFO` with the list, never a FAIL; useful on another operating system).
 
 Edition (free or Studio): the diagnose does not determine it and never touches the scripting interface of Resolve. The file information of Resolve.exe above may show the product name; please name your edition in a bug report. It never changes a setting in Resolve.
 

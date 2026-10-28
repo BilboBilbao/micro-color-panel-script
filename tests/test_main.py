@@ -74,23 +74,11 @@ def test_base_is_the_project_folder():
     assert (BASE / "panel_main.py").is_file()
 
 
-@pytest.mark.parametrize("version,parts", [((3, 11, 9), None), ((3, 15, 0), ["3.15", "3.11"])],
-                         ids=["tested_version", "other_version"])
-def test_python_version_note(version, parts):
-    note = app.python_version_note(version)
-    if parts is None:
-        assert note is None
-    else:
-        assert note is not None
-        for part in parts:
-            assert part in note
-
-
 @pytest.mark.parametrize("module,version,present,absent", [
     ("hid", (3, 11, 9), ["'hidapi'", "python -m pip install -r requirements.txt"], ["py -3.11"]),
-    ("pynput.keyboard", (3, 15, 0), ["'pynput'", "py -3.11 panel_main.py", "3.15"], ["Traceback"]),
+    ("pynput.keyboard", (3, 15, 0), ["'pynput'", "3.15"], ["Traceback", "Newer Python versions"]),
     (None, (3, 11, 9), ["unknown"], ["Traceback"]),
-], ids=["hid_tested_python", "dotted_name_newer_python", "no_module_name"])
+], ids=["hid_tested_python", "dotted_name_other_python", "no_module_name"])
 def test_missing_package_message(module, version, present, absent):
     text = app.missing_package_message(module, version)
     for part in present:
@@ -202,3 +190,29 @@ def test_log_file_cannot_be_created_gives_clean_exit(monkeypatch, capsys, as_win
         app.main([], dpi_state=(2, 0))
     assert stop.value.code == 1
     assert "could not start" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("version", [(3, 11, 9), (3, 12, 10), (3, 13, 15), (3, 14, 7)])
+def test_python_version_note_inside_tested_range(version):
+    assert app.python_version_note(version) is None
+
+
+@pytest.mark.parametrize("version,shown", [((3, 9, 0), "3.9"), ((3, 10, 14), "3.10"),
+                                           ((3, 15, 0), "3.15"), ((4, 0, 0), "4.0")])
+def test_python_version_note_outside_tested_range(version, shown):
+    assert app.python_version_note(version) == (
+        f"Python {shown} is in use. This program was tested with Python 3.11 to 3.14. "
+        "If something does not work, try Python 3.11 to 3.14.")
+
+
+def test_missing_package_message_inside_range_has_no_version_hint():
+    text = app.missing_package_message("hid", (3, 12, 10))
+    assert "pip install -r requirements.txt" in text
+    assert "is in use" not in text and "tested with" not in text
+
+
+def test_missing_package_message_outside_range_has_only_the_hint():
+    text = app.missing_package_message("hid", (3, 15, 0))
+    assert ("Python 3.15 is in use. This program was tested with Python 3.11 to 3.14. "
+            "If something does not work, try Python 3.11 to 3.14.") in text
+    assert "Newer Python versions" not in text and "panel_main.py" not in text

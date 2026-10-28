@@ -14,7 +14,7 @@ from micropanel.engine import run_engine
 from micropanel.log import anonymize, emit, setup_logging
 from micropanel.platform.windows import acquire_single_instance, dpi_warning_text
 
-TESTED_PYTHON = (3, 11)      # the Python version this program was tested with
+TESTED_PYTHON = ((3, 11), (3, 14))      # oldest and newest Python version this program was tested with
 REQUIRED_PACKAGES = {"hid": "hidapi", "pynput": "pynput", "pyautogui": "pyautogui"}   # module name -> package name
 NOT_WINDOWS_MESSAGE = ("This program only works on Windows at the moment (macOS support is planned).\n"
                        "Detected system: {system}")
@@ -23,12 +23,13 @@ SETUP_FAILED_MESSAGE = ("The program could not start: {error}\n"
 
 
 def python_version_note(version_info):
-    """Hint text if the Python version differs from the tested one, otherwise None. Only a hint, never an error."""
-    if tuple(version_info[:2]) == TESTED_PYTHON:
+    """Hint text if the Python version is outside the tested range, otherwise None. Only a hint, never an error."""
+    oldest, newest = TESTED_PYTHON
+    if oldest <= tuple(version_info[:2]) <= newest:
         return None
+    tested = f"{oldest[0]}.{oldest[1]} to {newest[0]}.{newest[1]}"
     return (f"Python {version_info[0]}.{version_info[1]} is in use. This program was tested with Python "
-            f"{TESTED_PYTHON[0]}.{TESTED_PYTHON[1]}. If something does not work, try Python "
-            f"{TESTED_PYTHON[0]}.{TESTED_PYTHON[1]}.")
+            f"{tested}. If something does not work, try Python {tested}.")
 
 
 def missing_package_message(module_name, version_info):
@@ -45,9 +46,7 @@ def missing_package_message(module_name, version_info):
                  "    python -m pip install -r requirements.txt"]
     note = python_version_note(version_info)
     if note:
-        lines += ["", note,
-                  "Newer Python versions often have no ready-made packages yet. If the installation fails,",
-                  "install Python 3.11 and start the program with:  py -3.11 panel_main.py"]
+        lines += ["", note]
     return "\n".join(lines)
 
 

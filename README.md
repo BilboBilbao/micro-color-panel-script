@@ -22,22 +22,21 @@ All code in this project was written by an AI: Claude, made by Anthropic. For mo
 |---|---|
 | Windows 11, USB cable | tested |
 | DaVinci Resolve 21 Studio (21.0.4.5 and 21.1.0.17) | tested |
-| Python 3.11 and 3.14 | tested |
-| Python 3.12 and 3.13 | untested |
+| Python 3.11 to 3.14 | tested |
 | Python older than 3.11 | no planned testing |
-| Automatic tests without a panel (GitHub Actions: Windows, macOS, Linux; Python 3.11 and 3.14) | run on every change |
+| Automatic tests without a panel (GitHub Actions: Windows, macOS; Python 3.11 to 3.14) | run on every change |
 | Windows 10 | untested |
 | Resolve 19 and 20, Resolve free edition | untested |
 | Bluetooth connection | untested |
 | macOS | not supported yet (the automatic tests pass there, the panel itself was not tried) |
 
-The full hardware check (all 52 inputs, all rotary elements, one real click/toggle action in Resolve) was last run on version 0.3.29 with Windows 11, Python 3.11.9 and Resolve 21.0.4.5 Studio. Later versions changed only the free-binding list and tests. On version 0.3.31 the automatic diagnose (--diagnose --auto) also passed with Python 3.14.7.
+The full hardware check (all 52 inputs, all rotary elements, one real click/toggle action in Resolve) was last run on version 0.3.29 with Windows 11, Python 3.11.9 and Resolve 21.0.4.5 Studio. Later versions changed only the free-binding list, tests, the diagnose and the Python version hint. On version 0.3.33 the automatic diagnose (--diagnose --auto) also passed with Python 3.12.10, 3.13.15 and 3.14.7.
 
 ## Installation (for now)
 
 A ready-made program without Python is planned. Until then:
 
-1. Install **Python 3.11 or 3.14** from python.org.
+1. Install **Python 3.11 to 3.14** from python.org.
 2. Download or clone this project into a folder.
 3. Open a terminal in that folder and run:
 
@@ -86,7 +85,7 @@ By default an action only runs while Resolve is the active window. For an action
 
 ## Development
 
-Tests: `python -m pip install -r requirements-dev.txt`, then `python -m pytest -q`. The same tests run on every push on GitHub (Windows, macOS, Linux).
+Tests: `python -m pip install -r requirements-dev.txt`, then `python -m pytest -q`. The same tests run on every push on GitHub (Windows, macOS).
 Hardware details: [docs/HARDWARE.md](docs/HARDWARE.md), all controls: [docs/BUTTONS.md](docs/BUTTONS.md). How this project was made: [docs/AI_DISCLOSURE.md](docs/AI_DISCLOSURE.md).
 
 ## License
