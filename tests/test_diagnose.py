@@ -395,23 +395,6 @@ def test_crash_in_a_step_gives_one_short_line():
     assert str(Path(__file__).parent) not in rows[0]
 
 
-LONG_MESSAGE = "initialization of fusionscript raised unreported exception " * 10 + "\nsecond line"
-
-
-@pytest.mark.parametrize("probe,returncode,stderr_line,start,also,limit", [
-    ({"status": "error", "error": "SystemError", "message": LONG_MESSAGE}, 0, "",
-     "SystemError: initialization", None, 120),
-    ({"status": "error", "error": "unreadable_answer"}, 3, "Traceback line " * 20,
-     "unreadable_answer", "exit code 3", 160),
-    ({}, 0, "", "unknown error", None, 20),
-], ids=["long_message_is_shortened", "exit_code_and_stderr", "empty_probe"])
-def test_describe_probe_failure(probe, returncode, stderr_line, start, also, limit):
-    text = st.describe_probe_failure(probe, returncode, stderr_line)
-    assert text.startswith(start)
-    assert also is None or also in text
-    assert "\n" not in text and len(text) <= limit
-
-
 # --------------------------------------------------------------------------
 # Safety gates of the assisted runs (Resolve reacts to what the diagnose does)
 # --------------------------------------------------------------------------

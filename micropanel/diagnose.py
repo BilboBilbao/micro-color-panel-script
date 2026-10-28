@@ -23,7 +23,6 @@ and file paths are not part of the report.
 
 Needs the third-party packages hid and pyautogui; they are imported inside the functions that use them.
 """
-import json
 import logging
 import os
 import platform
@@ -365,33 +364,7 @@ def step_second_instance(ctx):
             else "Second instance: " + "; ".join(problems))
 
 
-# ---- Resolve and edition ----
-PROBE_CODE = r'''
-import json, os, sys
-out = {}
-try:
-    base = os.path.join(os.environ.get("PROGRAMDATA", ""), "Blackmagic Design", "DaVinci Resolve",
-                        "Support", "Developer", "Scripting")
-    sys.path.append(os.path.join(base, "Modules"))
-    os.environ.setdefault("RESOLVE_SCRIPT_API", base)
-    os.environ.setdefault("RESOLVE_SCRIPT_LIB", os.path.join(os.environ.get("PROGRAMFILES", ""),
-                          "Blackmagic Design", "DaVinci Resolve", "fusionscript.dll"))
-    import DaVinciResolveScript as dvr
-    resolve = dvr.scriptapp("Resolve")
-    if resolve is None:
-        out["status"] = "no_connection"
-    else:
-        out["status"] = "connected"
-        out["product"] = str(resolve.GetProductName())
-        out["version"] = str(resolve.GetVersionString())
-except Exception as e:
-    out["status"] = "error"
-    out["error"] = type(e).__name__
-    out["message"] = str(e)[:200]
-print(json.dumps(out))
-'''
-
-
+# ---- Resolve ----
 def listing_has_resolve(data):
     """True if the raw tasklist output (bytes) names Resolve.exe.
     The output is NOT decoded as text: on a German system tasklist prints an umlaut in the OEM code page
@@ -403,34 +376,6 @@ def resolve_process_running():
     out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Resolve.exe", "/FO", "CSV", "/NH"],
                          capture_output=True, timeout=15)
     return listing_has_resolve(out.stdout or b"")
-
-
-def run_scripting_probe():
-    """Starts the probe in its own process. Returns (probe dict, return code, last stderr line)."""
-    result = subprocess.run([sys.executable, "-c", PROBE_CODE], capture_output=True, timeout=20)
-    stdout = (result.stdout or b"").decode("utf-8", errors="replace").strip()
-    stderr = (result.stderr or b"").decode("utf-8", errors="replace").strip()
-    probe = {}
-    if stdout:
-        try:
-            probe = json.loads(stdout.splitlines()[-1])
-        except ValueError:
-            probe = {"status": "error", "error": "unreadable_answer"}
-    last_error_line = stderr.splitlines()[-1] if stderr else ""
-    return probe, result.returncode, last_error_line
-
-
-def describe_probe_failure(probe, returncode=0, stderr_line=""):
-    """Short one-line text for a failed scripting probe: error name, shortened message, exit code."""
-    text = probe.get("error") or "unknown error"
-    detail = probe.get("message") or ""
-    if detail:
-        text += ": " + short_text(detail, 80)
-    if returncode:
-        text += f"; exit code {returncode}"
-        if stderr_line and not detail:
-            text += "; " + short_text(stderr_line, 80)
-    return text
 
 
 def find_resolve_exe():
@@ -503,18 +448,9 @@ def installed_davinci_entries():
     return sorted(set(found))
 
 
-def judge_edition(product_name):
-    if not product_name:
-        return "not determined (Resolve gave no product name)"
-    if "studio" in product_name.lower():
-        return "Studio (reported by Resolve itself)"
-    return (f"not determined (Resolve reported '{product_name}', which does not contain 'Studio'; "
-            f"a free edition is likely but not confirmed)")
-
-
 def step_resolve(ctx):
     if not IS_WINDOWS:
-        ctx.add("SKIP", "Resolve and edition: Windows only")
+        ctx.add("SKIP", "Resolve: Windows only")
         return
     try:
         ctx.resolve_running = resolve_process_running()
@@ -539,27 +475,6 @@ def step_resolve(ctx):
         ctx.add("INFO", "Installed programs with 'DaVinci' in the name: " + ("; ".join(entries) if entries else "none"))
     except Exception as e:  # noqa: BLE001
         ctx.add("INFO", f"Installed programs could not be read ({type(e).__name__})")
-
-    product = None
-    if ctx.resolve_running:
-        returncode, stderr_line = 0, ""
-        try:
-            probe, returncode, stderr_line = run_scripting_probe()
-        except (subprocess.SubprocessError, OSError) as e:
-            probe = {"status": "error", "error": type(e).__name__}
-        status = probe.get("status", "error")
-        if status == "connected":
-            product = probe.get("product")
-            ctx.add("INFO", f"Resolve scripting answered: product '{product}', version '{probe.get('version')}'")
-        elif status == "no_connection":
-            ctx.add("INFO", "Resolve scripting did not answer (external scripting is probably not enabled in Resolve, "
-                            "or this edition does not offer it). Nothing was changed in Resolve.")
-        else:
-            ctx.add("INFO", f"Resolve scripting probe failed ({describe_probe_failure(probe, returncode, stderr_line)}). "
-                            f"Nothing was changed in Resolve.")
-    else:
-        ctx.add("INFO", "Resolve scripting probe skipped (Resolve is not running)")
-    ctx.add("INFO", f"Resolve edition: {judge_edition(product)}")
 
 
 def step_foreground_function(ctx):
