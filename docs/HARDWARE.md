@@ -18,6 +18,17 @@ USB device `VID 0x1EDB` (Blackmagic), `PID 0xDA0F`, full-speed composite device:
 - **With Resolve not running the panel sent no button reports at all** (measured once on the desktop in v0.3.3: "Press USER", the shift steps and the order rule saw nothing, `--full` was stopped after the first input; opening the panel read-only still worked and unplug/replug still behaved). **Measured in v0.3.4 (hardware, user):** a program started *before* Resolve does receive reports and runs the `user` binding once Resolve is running, so plug and play with any start order works. Hypothesis (still not tested): Resolve or the Blackmagic driver activates the panel. Whether the panel ever sends without Resolve stays open and is unimportant for operation.
 - HID report descriptor (297 bytes) could not be read with USBTreeView; the format was reverse engineered from live reports.
 
+### Bluetooth (measured in Phase 2c, v0.3.34, user hardware, Windows 11)
+
+- `hid.enumerate()` lists the panel over USB as `0x1edb 0xda0f`, usage page `0xff00`, interface 2, and over Bluetooth with the **same IDs and usage page but interface number -1**. One entry each. With cable and Bluetooth together a second entry never appeared (the panel uses one way at a time). This is why the program finds the panel by usage page and not by interface number (B10, D20).
+- The old search for interface 2 did not find the panel over Bluetooth (`panel_waiting`, reason `not_found`) although Resolve used it normally; after the cable was plugged in the program found it.
+- Read measurement (a probe that only opened the entry and read; not kept in the repo): the entry can be opened while Resolve runs. All 406 reports had length 64 and the first byte `0x02` (buttons), `0x06` (knobs) or `0x05` (trackballs and rings). The report id is at the start as over USB, no extra header; the delta layout matches the sections below.
+- Pairing needed no PIN; Windows lists the panel as an input device.
+- `--diagnose` (and `--auto`), `--full` and `--rotary` over Bluetooth: 0 FAIL, 0 WARN; the unplug step is skipped (1 SKIP, on purpose).
+- Switching between USB and Bluetooth while the program runs: the panel is lost briefly and found again over the new way (observed, not timed).
+- Resolve shows battery level and connection type under "Panels" (bottom right), Windows shows the battery under "Bluetooth & devices". **Hypothesis, not measured:** the battery level comes from the standard Bluetooth LE battery service and not from the HID reports (only report ids 02, 05 and 06 were seen).
+- **Not measured:** latency over Bluetooth, behavior in standby, range, the exception type when Bluetooth drops, protection of interface 1 (DFU) over Bluetooth (indirect evidence over USB only: `hid.enumerate()` listed one entry of this VID/PID, never the DFU interface).
+
 ### Report 0x02 (buttons) (measured)
 
 - Byte 0 = `0x02`. Bytes 1 to 7 hold **one bit per control**. 52 bits are mapped in the device profile: **40 normal buttons**
@@ -53,7 +64,7 @@ USB device `VID 0x1EDB` (Blackmagic), `PID 0xDA0F`, full-speed composite device:
 
 - Connection: USB-C (data + charging) or Bluetooth. Bluetooth name is "Micro Color Panel" (shown as "Micro Color Panel 4" on
   Windows/iPadOS in screenshots). Panel is always on (no power switch). Built-in rechargeable battery. Battery level is shown in Resolve
-  System Preferences (so the panel reports it somewhere; location unknown). A hardware Bluetooth button is on the rear.
+  System Preferences (so the panel reports it somewhere; location unknown, see the Bluetooth section). A hardware Bluetooth button is on the rear.
 - The manual says **Resolve 19 or higher is required for the panel itself**. This is Blackmagic's statement about the panel, not
   about this project.
 - **Factory reset:** hold AUTO COLOR + STOP until the LEDs cycle. It removes Bluetooth pairing. It is a **physical action handled

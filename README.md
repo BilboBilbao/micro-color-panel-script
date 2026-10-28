@@ -12,6 +12,7 @@ All code in this project was written by an AI: Claude, made by Anthropic. For mo
 ## What it does and does not do
 
 - It only **reads** from the panel. It never writes to it and never touches its firmware.
+- The panel can be connected by USB cable or by Bluetooth. The program finds it either way.
 - Resolve keeps working as usual. The program does **not** switch off the native function of a button. It only adds a second action.
   Use buttons that Resolve does not assign (see "Free buttons" below).
 - Today only **buttons** (50 of them) can have an action. Turning knobs, rings and trackballs is decoded, but cannot be bound yet.
@@ -21,16 +22,16 @@ All code in this project was written by an AI: Claude, made by Anthropic. For mo
 | Item | Status |
 |---|---|
 | Windows 11, USB cable | tested |
+| Windows 11, Bluetooth connection | tested |
 | DaVinci Resolve 21 Studio (21.0.4.5 and 21.1.0.17) | tested |
 | Python 3.11 to 3.14 | tested |
 | Python older than 3.11 | no planned testing |
 | Automatic tests without a panel (GitHub Actions: Windows, macOS; Python 3.11 to 3.14) | run on every change |
 | Windows 10 | untested |
 | Resolve 19 and 20, Resolve free edition | untested |
-| Bluetooth connection | untested |
 | macOS | not supported yet (the automatic tests pass there, the panel itself was not tried) |
 
-The full hardware check (all 52 inputs, all rotary elements, one real click/toggle action in Resolve) was last run on version 0.3.29 with Windows 11, Python 3.11.9 and Resolve 21.0.4.5 Studio. Later versions changed only the free-binding list, tests, the diagnose and the Python version hint. On version 0.3.33 the automatic diagnose (--diagnose --auto) also passed with Python 3.12.10, 3.13.15 and 3.14.7.
+The full hardware check (all 52 inputs, all rotary elements, one real click/toggle action in Resolve) was last run on version 0.3.29 with Windows 11, Python 3.11.9 and Resolve 21.0.4.5 Studio. Later versions changed only the free-binding list, tests, the diagnose, the Python version hint and (0.3.34) the way the panel is found: by its HID usage page instead of the USB interface number, which is what makes Bluetooth work. On version 0.3.33 the automatic diagnose (--diagnose --auto) also passed with Python 3.12.10, 3.13.15 and 3.14.7. On version 0.3.34 the automatic diagnose passed over USB and over Bluetooth, and --diagnose, --full and --rotary ran over Bluetooth without FAIL or WARN (the unplug step is skipped there).
 
 ## Installation (for now)
 
