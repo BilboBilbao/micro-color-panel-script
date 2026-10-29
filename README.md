@@ -31,8 +31,6 @@ All code in this project was written by an AI: Claude, made by Anthropic. For mo
 | Resolve 19 and 20, Resolve free edition | untested |
 | macOS | not supported yet (the automatic tests pass there, the panel itself was not tried) |
 
-The full hardware check (all 52 inputs, all rotary elements, one real click/toggle action in Resolve) was last run on version 0.3.29 with Windows 11, Python 3.11.9 and Resolve 21.0.4.5 Studio. Later versions changed only the free-binding list, tests, the diagnose, the Python version hint and (0.3.34) the way the panel is found: by its HID usage page instead of the USB interface number, which is what makes Bluetooth work. On version 0.3.33 the automatic diagnose (--diagnose --auto) also passed with Python 3.12.10, 3.13.15 and 3.14.7. On version 0.3.34 the automatic diagnose passed over USB and over Bluetooth, and --diagnose, --full and --rotary ran over Bluetooth without FAIL or WARN (the unplug step is skipped there).
-
 ## Installation (for now)
 
 A ready-made program without Python is planned. Until then:

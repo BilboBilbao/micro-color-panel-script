@@ -7,7 +7,8 @@ import pytest
 
 import micropanel.engine as engine
 from micropanel import BASE
-from helpers import ConfigStub, FakeDevice, events, fields, idle_report, real_config, recorded_report, report_of
+from helpers import (ConfigStub, FakeDevice, events, fields, idle_report, messages, real_config, recorded_report,
+                     report_of)
 
 USER_ACTION = ("keys", ["Key.f9"], True)
 
@@ -182,3 +183,31 @@ def test_other_open_error_is_not_swallowed():                          # CONS-01
 
     with pytest.raises(RuntimeError):
         engine.wait_for_panel(open_device, lambda: None, lambda seconds: None)
+
+
+def with_connection(device, connection):
+    device.connection = connection          # what open_panel adds to the opened panel
+    return device
+
+
+def test_panel_connected_names_the_connection(profile, caplog):        # v0.3.35, panel present at start
+    caplog.set_level(logging.INFO)
+    run(profile, [with_connection(FakeDevice([idle_report()]), "Bluetooth")])
+    assert [f["connection"] for f in fields(caplog, "panel_connected")] == ["Bluetooth"]
+    assert messages(caplog, "panel_connected") == ["Panel connected (Bluetooth)"]
+
+
+def test_connection_is_logged_again_after_a_lost_panel(profile, caplog):   # v0.3.35, USB then Bluetooth
+    caplog.set_level(logging.INFO)
+    first = with_connection(FakeDevice([OSError("unplugged")]), "USB")
+    second = with_connection(FakeDevice(), "Bluetooth")
+    run(profile, [first, second])
+    assert events(caplog) == ["panel_connected", "panel_lost", "panel_connected", "stop"]
+    assert [f["connection"] for f in fields(caplog, "panel_connected")] == ["USB", "Bluetooth"]
+
+
+def test_connection_is_unknown_without_the_attribute(profile, caplog):     # v0.3.35, e.g. a device without the field
+    caplog.set_level(logging.INFO)
+    run(profile, [FakeDevice([idle_report()])])
+    assert [f["connection"] for f in fields(caplog, "panel_connected")] == ["unknown"]
+    assert messages(caplog, "panel_connected") == ["Panel connected (unknown)"]

@@ -58,7 +58,7 @@ The file rotates automatically (500 KB, two backups). Fields are `key=value`, va
 | `start_without_bindings` | ERROR | | the first load failed, the program runs without bindings until the file is fixed |
 | `config_warning` | WARNING | entry, reason | single entry skipped or notable; reasons: `invalid_name`, `invalid_entry`, `bad_only_resolve`, `not_free`, `optional_file_missing` |
 | `running` | INFO | | the main loop is running |
-| `panel_connected` | INFO | | panel opened |
+| `panel_connected` | INFO | connection | panel opened; `connection` is `USB`, `Bluetooth` or `unknown`; logged again after every reconnect |
 | `panel_waiting` | WARNING | reason | panel not found or cannot be opened (`not_found`, `open_error`) |
 | `panel_lost` | WARNING | | connection lost, reconnecting |
 | `action` | INFO / WARNING / ERROR | binding, type, result | result is `executed`, `blocked_foreground`, `blocked_unknown` or `error` |

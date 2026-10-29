@@ -40,7 +40,7 @@ from micropanel.actions import execute, to_pynput, toggle_state
 from micropanel.app import python_version_note
 from micropanel.config import BINDINGS_PATH, TABS_PATH, ConfigError, ConfigManager, _as_point, load_profile, read_json
 from micropanel.decoder import decode_held, decode_rotary, make_lookup, make_rotary_lookup, triggers_for_report
-from micropanel.device import open_panel
+from micropanel.device import bus_name, open_panel
 from micropanel.keys import NAMED_KEYS, parse_keys
 from micropanel.log import anonymize, log
 from micropanel.platform.windows import (DPI_NAMES, acquire_single_instance, foreground_process_name,
@@ -53,7 +53,6 @@ except ImportError:
 
 IS_WINDOWS = sys.platform == "win32"
 STEP_SECONDS = 15
-BUS_TYPES = {0: "unknown", 1: "USB", 2: "Bluetooth", 3: "I2C", 4: "SPI"}
 
 
 # --------------------------------------------------------------------------
@@ -88,7 +87,7 @@ class Context:
         self.dev: Any = None             # panel opened read-only (part A), used by part C
         self.owns_lock = None       # True / False / None = not checked
         self.resolve_running = None
-        self.bus = None
+        self.bus: str | None = None
 
     def section(self, title):
         print(f"\n== {title} ==", flush=True)
@@ -305,8 +304,7 @@ def step_panel(ctx):
         ctx.add("FAIL", "Panel not found (is it connected and switched on? is the Blackmagic panel driver installed?)")
         return
     d = mine[0]
-    bus = d.get("bus_type")
-    ctx.bus = BUS_TYPES.get(bus, str(bus)) if bus is not None else None
+    ctx.bus = bus_name(d.get("bus_type"))
     ctx.add("PASS", f"Panel found: {len(mine)} of {len(entries)} listed entry(ies) with usage page {profile.usage_page:#06x}")
     ctx.add("INFO", f"Panel: product '{d.get('product_string') or '?'}', manufacturer '{d.get('manufacturer_string') or '?'}'")
     ctx.add("INFO", f"Connection type reported by the hid library: {ctx.bus or 'not provided by this version of the library'}")

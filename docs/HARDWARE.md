@@ -25,9 +25,9 @@ USB device `VID 0x1EDB` (Blackmagic), `PID 0xDA0F`, full-speed composite device:
 - Read measurement (a probe that only opened the entry and read; not kept in the repo): the entry can be opened while Resolve runs. All 406 reports had length 64 and the first byte `0x02` (buttons), `0x06` (knobs) or `0x05` (trackballs and rings). The report id is at the start as over USB, no extra header; the delta layout matches the sections below.
 - Pairing needed no PIN; Windows lists the panel as an input device.
 - `--diagnose` (and `--auto`), `--full` and `--rotary` over Bluetooth: 0 FAIL, 0 WARN; the unplug step is skipped (1 SKIP, on purpose).
-- Switching between USB and Bluetooth while the program runs: the panel is lost briefly and found again over the new way (observed, not timed).
+- Switching between USB and Bluetooth while the program runs (measured in v0.3.35 with the log): `dev.read` fails with `OSError('read error')` both when the cable is plugged in and when it is pulled out. The program reconnects at its first retry, 2 s later (log resolution 1 s), over the new way and logs `Panel connected (USB)` or `Panel connected (Bluetooth)`.
 - Resolve shows battery level and connection type under "Panels" (bottom right), Windows shows the battery under "Bluetooth & devices". **Hypothesis, not measured:** the battery level comes from the standard Bluetooth LE battery service and not from the HID reports (only report ids 02, 05 and 06 were seen).
-- **Not measured:** latency over Bluetooth, behavior in standby, range, the exception type when Bluetooth drops, protection of interface 1 (DFU) over Bluetooth (indirect evidence over USB only: `hid.enumerate()` listed one entry of this VID/PID, never the DFU interface).
+- **Not measured:** latency over Bluetooth, behavior in standby, range, the exception type of a pure Bluetooth drop (out of range, panel off), protection of interface 1 (DFU) over Bluetooth (indirect evidence over USB only: `hid.enumerate()` listed one entry of this VID/PID, never the DFU interface).
 
 ### Report 0x02 (buttons) (measured)
 

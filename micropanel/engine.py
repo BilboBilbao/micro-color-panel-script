@@ -19,7 +19,8 @@ def wait_for_panel(open_device, on_idle, sleep=time.sleep):
         try:
             dev = open_device()
             if dev is not None:
-                emit(logging.INFO, "panel_connected", "Panel connected")
+                connection = getattr(dev, "connection", "unknown")     # set by open_panel; other devices have none
+                emit(logging.INFO, "panel_connected", "Panel connected (%s)", connection, connection=connection)
                 return dev
             if not warned:
                 emit(logging.WARNING, "panel_waiting", "Panel not found, waiting ...", reason="not_found")
