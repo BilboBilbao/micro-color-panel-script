@@ -60,6 +60,51 @@ USB device `VID 0x1EDB` (Blackmagic), `PID 0xDA0F`, full-speed composite device:
 - Hypothesis from the first version of this section (nine 24-bit delta channels, 3 balls x 2 axes + 3 rings, starting at byte 2 with a distance of 4 bytes) is **confirmed**; the knobs are **not** in report 05 (they are in report 06).
 - Only report ids 02, 05 and 06 were seen. No battery or connection status.
 
+### LEDs and the report descriptor (Phase 2b, read only, nothing was sent to the panel)
+
+**Observation (user; Resolve 21.0.4 Studio, panel on USB, this program not running):**
+- Resolve closed, also after unplugging and plugging in again: no LED is lit. Resolve running: **all button LEDs are white**. The LEDs are therefore set by the computer, not by the panel itself.
+- Pressing a button turns it green (Shift Up/Down while held, Offset, H/Lite, Cursor, and Play Still only while a playable still is selected) or red (Bypass, Disable); the next press turns it white again. All other buttons, **User included**, stay white when pressed. Switching Resolve from the Color page to the Edit page changes no LED.
+- Resolve decides the state (Play Still depends on the selected still, which the panel cannot know).
+
+**Report descriptor** (251 bytes, read with `hid.device.get_report_descriptor()` over USB; on Windows hidapi rebuilds it from system data, so details may differ from the descriptor stored in the panel). All usage pages are vendor defined (0xFF01 to 0xFF09):
+
+| Report id | Direction | Data | Meaning |
+|---|---|---|---|
+| 2 | Input | 64 x 1 bit | buttons (52 bits used, see above) |
+| 2 | Output | 64 x 1 bit | unknown, same layout as the button report |
+| 3 | Feature | 2 x 8 bit | set by Resolve; hypothesis: LED brightness (see capture) |
+| 4 | Output | 48 x 1 bit | coloured LEDs (green, red), one bit per LED (inferred, see capture) |
+| 5 | Input | 3 x 96 bit | trackballs and rings (three groups of 12 bytes) |
+| 6 | Input | 16 x 32 bit | knobs (12 decoded, channels 13 to 16 not used) |
+| 7 | Feature | 1 x 8 bit + 4 x 8 bit | unknown |
+| 8 | Input | 2 x 8 bit | never seen, unknown (status?) |
+| 8 | Feature | 2 x 8 bit | read by Resolve; hypothesis: battery (see capture) |
+| 10 | Feature | 1 x 8 bit | set to 1 by Resolve, purpose unknown |
+
+A collection with usage 9 has no reports. The program has never sent an output or feature report or requested a feature report.
+
+**Readings (hypotheses, not measured):**
+- Both output reports consist of single bits only (no byte or multi-bit fields), so there are no colour or brightness values. One bit per LED (on/off) is more likely than an RGB value; whether green and red are separate bits is open.
+- Resolve probably writes whole 64-bit or 48-bit masks. The LED state cannot be read back (no input report for it was seen), so a second writer would not know the current state and could switch off LEDs set by Resolve, and Resolve may overwrite its change.
+- Open questions about the output path were partly answered by the capture below.
+
+**To check against the recordings (found in the descriptor, not verified):**
+- Report 6 is 16 x 4 = 64 data bytes plus the report id byte, i.e. 65 bytes; the program reads 64.
+- Report 5 has nine 4-byte channels from byte 1 (37 bytes on the wire, confirmed by the capture); the profile decodes 24 bits from byte 2 + 4k. Look at byte 1 + 4k in the recordings.
+
+**Capture of what Resolve sends (Phase 2b step C; USBPcap and Wireshark on Windows 11, panel on USB, Resolve 21.0.4 Studio; two short captures, one while Resolve starts and one while the user pressed buttons; the captures stay local, they are not in the repo):**
+- All traffic is HID class traffic on interface 2: interrupt OUT on endpoint 0x01, interrupt IN on endpoint 0x81, and the class requests SET_REPORT and GET_REPORT for feature reports. No vendor requests and no string descriptor requests were seen, so the vendor interface 0 plays no part here (at least in these captures).
+- On the wire the button report (id 2) is 9 bytes (id + 8) and the trackball/ring report (id 5) is 37 bytes (id + 36), as in the descriptor. The 64 in the program is the read size.
+- **Resolve starting** (in this order, within about 0.1 s): SET feature 3 = `03 00 00`; output report 4 = all zero; output report 2 = all zero; GET feature 1 (8 bytes, content not recorded here); SET feature 10 = `0a 01`; GET feature 8 = `08 00 64`. About 4 s later: GET feature 8 again (same value) and SET feature 3 = `03 32 32`.
+- **Resolve running:** every 30 s it sends SET feature 10 = `0a 01` and SET feature 3 = `03 32 32` (a refresh).
+- Hypotheses: feature 3 holds the LED brightness (0 = dark, 0x32 = 50 for both values), which would explain why the LEDs are dark without Resolve and white with it, while output report 2 stayed all zero. Feature 8 `00 64` may be the battery (100 %), also unconfirmed.
+- **Every colour change is one output report 4** (`04` + 6 bytes, bit n = byte 1 + n // 8, bit n % 8). It sets one bit when the LED turns green or red and an all-zero report when it goes back to white. Output report 2 was never sent again, and pressing **User** sent nothing.
+- Bits seen (assigned by the order in which the user pressed the buttons, Offset, Bypass, Disable, Shift Up, Shift Down, H/Lite, Cursor; not labelled by the capture, so an inference): Bypass 0, Offset 2, Disable 3, Shift Up 4, Shift Down 5, H/Lite 8, Cursor 10. Bits 1 and 9 were not seen (Play Still was not pressed, so one of them may be Play Still). No bit for User is known.
+- The report always has all 48 bits, so each report probably sets the whole state of the coloured LEDs. A second program that sends it would switch off whatever Resolve has set, and Resolve rewrites it on its next change.
+
+**Not done on purpose:** any write, any SET_REPORT and any GET_REPORT by this program. Whether the User LED can be controlled at all is unknown: its only candidate is the never-used output report 2 (64 bits) or an unused bit of report 4, and neither effect is known.
+
 ### Findings from the manual (September 2024, hints only)
 
 - Connection: USB-C (data + charging) or Bluetooth. Bluetooth name is "Micro Color Panel" (shown as "Micro Color Panel 4" on
@@ -71,7 +116,7 @@ USB device `VID 0x1EDB` (Blackmagic), `PID 0xDA0F`, full-speed composite device:
   by panel firmware**. The script cannot trigger it (read-only, and key output goes to the PC, not to the panel). Only a README
   note is needed; no software protection.
 - **LEDs:** green for Shift Up/Down (while held), Offset, Play Still, H/Lite, Cursor (active modes); red for Bypass and Disable.
-  Whether other colors are possible is unknown (Phase 2b).
+  Whether other colors are possible is unknown (see the LED section above).
 - **User button** is "Reserved for future use" (manual p. 16). A future firmware or Resolve version may give it a native function.
 - **Trackball/ring meaning depends on Resolve state** (Primary / Log / Offset mode, shifted Window and Sizing modes). The HID report only
   carries "element + delta"; the meaning lives in Resolve. Consequence for the device profile: store physical element identity only.
