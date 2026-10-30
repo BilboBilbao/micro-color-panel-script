@@ -27,7 +27,7 @@ BASE = HERE.parent
 LIST_FILE = HERE / "button_list.txt"
 OUT_FILE = BASE / "recordings" / "buttons_new.json"
 
-VID, PID, INTERFACE = 0x1EDB, 0xDA0F, 2
+VID, PID, USAGE_PAGE = 0x1EDB, 0xDA0F, 0xFF00   # as in devices/micro_color_panel.json; found by usage page (Bluetooth has no interface 2)
 KEY_BYTES = range(1, 9)
 
 if not LIST_FILE.exists():
@@ -40,9 +40,9 @@ if OUT_FILE.exists():
     result = json.loads(OUT_FILE.read_text(encoding="utf-8"))
     print(f"{len(result)} buttons already recorded, skipping them.")
 
-path = next((d["path"] for d in hid.enumerate(VID, PID) if d["interface_number"] == INTERFACE), None)
+path = next((d["path"] for d in hid.enumerate(VID, PID) if d["usage_page"] == USAGE_PAGE), None)
 if path is None:
-    raise SystemExit("Panel (interface 2) not found. Is it connected and is Resolve/the driver active?")
+    raise SystemExit("Panel not found. Is it connected (USB or Bluetooth) and is Resolve/the driver active?")
 dev = hid.device()
 dev.open_path(path)
 
