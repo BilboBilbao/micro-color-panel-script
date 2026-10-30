@@ -109,17 +109,7 @@ A collection with usage 9 has no reports. The program has never sent an output o
 
 Throwaway script tools/led_test_stage1.py, only output report 4 (7 bytes: id 4 plus 6 data bytes), nothing else was sent. Each bit was on for 3 seconds, then all bits off.
 
-| Bit | Button | Source |
-|---|---|---|
-| 0 | Bypass | recording only |
-| 1 | User | measured (green) |
-| 2 | Offset | measured (green), same bit Resolve sends |
-| 3 | Disable | recording only |
-| 4 | Shift Up | recording only |
-| 5 | Shift Down | recording only |
-| 8 | H/Lite | recording only |
-| 9 | Viewer | measured (green, very bright by the user's impression) |
-| 10 | Cursor | recording only |
+Bit table: see stage 2a.
 
 - Writing works while Resolve has the device open. No error, `write` returned 9 for every 7-byte report (hypothesis: hidapi pads to the 9 bytes of output report 2; the wire was not captured).
 - Resolve never lights User or Viewer, but the panel does. Only green was seen; red is known from Bypass and Disable in Resolve.
@@ -127,6 +117,31 @@ Throwaway script tools/led_test_stage1.py, only output report 4 (7 bytes: id 4 p
 - Resolve restores its colors on the next change (Offset or Bypass pressed).
 - Not measured: the other 39 bits, other colors, brightness, how long a lit LED stays on without further reports, what Resolve's own full report does to an externally lit bit. Report 4 always carries all 48 bits, so a second writer and Resolve overwrite each other.
 - Further stages need a new decision by the user.
+
+### LED write test, stage 2a (D23, measured, user hardware, USB, Resolve 21.0.4 running on the Color page)
+
+Throwaway script tools/led_test_stage2a.py, only output report 4, all 48 bits one at a time (Enter before each, 2 seconds on, then all bits off). The call returned 9 for every 7-byte report, no error.
+
+| Bit | Button | Color |
+|---|---|---|
+| 0 | Bypass | red |
+| 1 | User | green |
+| 2 | Offset | green |
+| 3 | Disable | red |
+| 4 | Shift Up | green |
+| 5 | Shift Down | green |
+| 6 | Play Still | green |
+| 7 | Wipe Still | green |
+| 8 | H/Lite | green |
+| 9 | Viewer | light green (very bright in stage 1) |
+| 10 | Cursor | green |
+| 11 to 47 | none | nothing visible |
+
+- Only 11 buttons have a colored LED in report 4, one bit each. No other colors were seen, and there are no two bits for one button, so there is nothing to combine inside report 4.
+- Red or green seems to belong to the button, not to a value (Bypass and Disable are red). Why Viewer is lighter is unknown.
+- The white light of all buttons is not controlled by report 4. Hypothesis, not measured: output report 2 (64 single bits, sent all zero by Resolve at start).
+- Panel works normally afterwards. Resolve restores its colors afterwards.
+- This table replaces the bit table of stage 1.
 
 ### Findings from the manual (September 2024, hints only)
 
