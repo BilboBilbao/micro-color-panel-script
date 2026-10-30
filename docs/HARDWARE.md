@@ -105,6 +105,8 @@ A collection with usage 9 has no reports. The program has never sent an output o
 
 **Not done on purpose:** any write, any SET_REPORT and any GET_REPORT by this program. Whether the User LED can be controlled at all is unknown: its only candidate is the never-used output report 2 (64 bits) or an unused bit of report 4, and neither effect is known.
 
+- The throwaway scripts of stages 1 and 2a (tools/led_test_stage1.py, tools/led_test_stage2a.py) and their tests were removed after the measurement; they are in the Git history.
+
 ### LED write test, stage 1 (D22, measured, user hardware, USB, Resolve 21.0.4 running on the Color page)
 
 Throwaway script tools/led_test_stage1.py, only output report 4 (7 bytes: id 4 plus 6 data bytes), nothing else was sent. Each bit was on for 3 seconds, then all bits off.
