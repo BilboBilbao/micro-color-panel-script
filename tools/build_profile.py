@@ -7,6 +7,7 @@ Usage (from the project folder):
 Reads:   a button recording (name -> [[byte, mask]]), tools/button_list.txt, tools/knobs_list.txt
          The report positions of knobs, trackballs and rings are not in buttons_clean.json: they are built in main()
          from the measured layout described above KNOB_REPORT (tools/record_rotary.py, docs/HARDWARE.md).
+         The free binding list is not part of a recording: it is taken over unchanged from the existing profile.
 Writes:  devices/micro_color_panel.json (an existing file is saved as micro_color_panel.bak.json first)
 
 After writing, the new profile is read back and every button position is compared with the source.
@@ -20,20 +21,6 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent.parent
 TOOLS = BASE / "tools"
 TARGET = BASE / "devices" / "micro_color_panel.json"
-
-# The 31 combinations without a native function (Blackmagic manual, Sept. 2024, Control Table).
-# Live-tested on Resolve 21.0.4.5 Studio: no reaction. main() adds shift_up/shift_down + every knob press (24, live test only).
-FREE_BINDINGS = [
-    "user", "shift_up+user", "shift_down+user",
-    "shift_down+offset", "shift_down+copy", "shift_down+paste",
-    "shift_up+undo", "shift_down+undo", "shift_up+redo", "shift_down+redo",
-    "shift_up+bypass", "shift_down+bypass", "shift_up+disable", "shift_down+disable",
-    "shift_down+wipe_still", "shift_up+grab_still", "shift_down+grab_still", "shift_down+h_lite",
-    "shift_up+cursor", "shift_down+cursor", "shift_up+select", "shift_down+select",
-    "shift_down+add_keyframe", "shift_down+next_still",
-    "shift_up+prev_node", "shift_up+next_node", "shift_up+prev_frame", "shift_up+next_frame",
-    "shift_up+backward", "shift_up+forward", "shift_up+stop",
-]
 
 DEVICE = {"name": "DaVinci Resolve Micro Color Panel", "vid": "0x1EDB", "pid": "0xDA0F", "hid_usage_page": "0xFF00"}
 REPORTS = {"buttons": "0x02", "trackballs_rings": "0x05", "knobs": "0x06"}
@@ -115,14 +102,23 @@ def main():
     if counts != {"knob": 12, "trackball": 3, "ring": 3}:
         problems.append(f"knobs_list.txt must name 12 knobs, 3 trackballs and 3 rings, found {counts}")
 
+    # The free bindings (no native Resolve function; Blackmagic manual, Sept. 2024, Control Table; live-tested on
+    # Resolve 21.0.4.5 Studio: no reaction) are not part of a recording. They are taken over from the existing profile.
+    free_bindings = []
+    if not TARGET.exists():
+        problems.append(f"{TARGET.name} not found: the free binding list is taken over from it")
+    else:
+        free_bindings = json.loads(TARGET.read_text(encoding="utf-8-sig")).get("free_bindings", [])
+        for name in free_bindings:
+            if not isinstance(name, str) or name.rsplit("+", 1)[-1] not in button_names:
+                problems.append(f"free_bindings: '{name}' does not end in a button of button_list.txt")
+
     if problems:
         print("NOT WRITTEN, please check:")
         for p in problems:
             print("  -", p)
         raise SystemExit(1)
 
-    free_bindings = FREE_BINDINGS + [f"{shift}+{name}" for shift in ("shift_up", "shift_down")
-                                     for name in button_names if name.endswith("_knob_press")]
     lines = ["{", f'  "_info": {json.dumps(INFO)},', '  "profile_version": 2,',
              f'  "device": {json.dumps(DEVICE)},', f'  "reports": {json.dumps(REPORTS)},', '  "controls": [']
     for i, control in enumerate(controls):
