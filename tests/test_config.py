@@ -225,3 +225,22 @@ def test_unreadable_file_does_not_crash_poll_and_keeps_actions(tmp_path, profile
         config.poll()
     assert list(config.actions) == ["user"]
     assert events(caplog).count("config_failed") == 1
+
+
+@pytest.mark.parametrize("value,expected", [
+    ([10, 20], (10, 20)),
+    ([0, 0], (0, 0)),
+    ([-5, 7], (-5, 7)),                                                   # monitors left of the main monitor
+    ([True, 1], None),                                                    # bool counts as 1 in Python: rejected
+    ([1, False], None),
+    ([1.5, 2], None),
+    ([1, "2"], None),
+    ([1], None),
+    ([1, 2, 3], None),
+    ((1, 2), None),                                                       # JSON only ever gives lists
+    ({"x": 1, "y": 2}, None),
+    (None, None),
+], ids=["whole_numbers", "zeros", "negative", "bool_x", "bool_y", "float", "string", "one_item", "three_items",
+        "tuple", "dict", "none"])
+def test_as_point(value, expected):                                       # rule in CLAUDE.md section 6 (_as_point renamed)
+    assert cfg.as_point(value) == expected

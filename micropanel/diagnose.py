@@ -38,7 +38,7 @@ from pathlib import Path
 from micropanel import BASE, __version__
 from micropanel.actions import execute, to_pynput, toggle_state
 from micropanel.app import python_version_note
-from micropanel.config import BINDINGS_PATH, TABS_PATH, ConfigError, ConfigManager, _as_point, load_profile, read_json
+from micropanel.config import BINDINGS_PATH, TABS_PATH, ConfigError, ConfigManager, as_point, load_profile, read_json
 from micropanel.decoder import decode_held, decode_rotary, make_lookup, make_rotary_lookup, triggers_for_report
 from micropanel.device import bus_name, open_panel
 from micropanel.keys import NAMED_KEYS, parse_keys
@@ -228,12 +228,12 @@ def get_monitors():
 
 def collect_click_points():
     """Click points of tabs.json and of 'click' bindings with a fixed position (read only).
-    A point counts only if the program itself would accept it (config._as_point)."""
+    A point counts only if the program itself would accept it (config.as_point)."""
     points = {}
     try:
         tabs = read_json(TABS_PATH, required=False)
         for name, pos in (tabs.items() if isinstance(tabs, dict) else []):
-            point = _as_point(pos)
+            point = as_point(pos)
             if point is not None:
                 points[f"tab '{name}'"] = point
     except ConfigError:
@@ -242,7 +242,7 @@ def collect_click_points():
         bindings = read_json(BINDINGS_PATH)
         for name, entry in (bindings.items() if isinstance(bindings, dict) else []):
             if not name.startswith("_") and isinstance(entry, dict) and entry.get("type") == "click":
-                point = _as_point(entry.get("pos"))
+                point = as_point(entry.get("pos"))
                 if point is not None:
                     points[f"binding '{name}'"] = point
     except ConfigError:

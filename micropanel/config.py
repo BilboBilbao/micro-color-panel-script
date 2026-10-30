@@ -66,7 +66,7 @@ def load_profile(path=PROFILE_PATH):
 # --------------------------------------------------------------------------
 # Bindings: validate and compile
 # --------------------------------------------------------------------------
-def _as_point(value):
+def as_point(value):
     """(x, y) for a list of two whole numbers, otherwise None. bool is rejected (in Python, True counts as 1)."""
     if (isinstance(value, list) and len(value) == 2
             and all(isinstance(v, int) and not isinstance(v, bool) for v in value)):
@@ -75,7 +75,7 @@ def _as_point(value):
 
 
 def _tab_pos(tabs, name):
-    point = _as_point(tabs.get(name))
+    point = as_point(tabs.get(name))
     if point is None:
         raise ValueError(f"tab '{name}' missing or invalid in tabs.json")
     return point
@@ -92,7 +92,7 @@ def compile_action(entry, tabs):
     if action_type == "click":
         if "tab" in entry:
             return ("click", _tab_pos(tabs, entry["tab"]))
-        point = _as_point(entry.get("pos"))
+        point = as_point(entry.get("pos"))
         if point is not None:
             return ("click", point)
         raise ValueError("click needs 'tab' or 'pos': [x, y]")
