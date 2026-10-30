@@ -105,6 +105,29 @@ A collection with usage 9 has no reports. The program has never sent an output o
 
 **Not done on purpose:** any write, any SET_REPORT and any GET_REPORT by this program. Whether the User LED can be controlled at all is unknown: its only candidate is the never-used output report 2 (64 bits) or an unused bit of report 4, and neither effect is known.
 
+### LED write test, stage 1 (D22, measured, user hardware, USB, Resolve 21.0.4 running on the Color page)
+
+Throwaway script tools/led_test_stage1.py, only output report 4 (7 bytes: id 4 plus 6 data bytes), nothing else was sent. Each bit was on for 3 seconds, then all bits off.
+
+| Bit | Button | Source |
+|---|---|---|
+| 0 | Bypass | recording only |
+| 1 | User | measured (green) |
+| 2 | Offset | measured (green), same bit Resolve sends |
+| 3 | Disable | recording only |
+| 4 | Shift Up | recording only |
+| 5 | Shift Down | recording only |
+| 8 | H/Lite | recording only |
+| 9 | Viewer | measured (green, very bright by the user's impression) |
+| 10 | Cursor | recording only |
+
+- Writing works while Resolve has the device open. No error, `write` returned 9 for every 7-byte report (hypothesis: hidapi pads to the 9 bytes of output report 2; the wire was not captured).
+- Resolve never lights User or Viewer, but the panel does. Only green was seen; red is known from Bypass and Disable in Resolve.
+- Panel works normally afterwards.
+- Resolve restores its colors on the next change (Offset or Bypass pressed).
+- Not measured: the other 39 bits, other colors, brightness, how long a lit LED stays on without further reports, what Resolve's own full report does to an externally lit bit. Report 4 always carries all 48 bits, so a second writer and Resolve overwrite each other.
+- Further stages need a new decision by the user.
+
 ### Findings from the manual (September 2024, hints only)
 
 - Connection: USB-C (data + charging) or Bluetooth. Bluetooth name is "Micro Color Panel" (shown as "Micro Color Panel 4" on
