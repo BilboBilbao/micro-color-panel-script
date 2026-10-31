@@ -163,7 +163,7 @@ def fake_mouse(monkeypatch):
         monkeypatch.setitem(sys.modules, "pynput", package)
         monkeypatch.setitem(sys.modules, "pynput.mouse", mouse)
         monkeypatch.setitem(sys.modules, "pyautogui", None)
-        monkeypatch.setattr(actions, "sleep", lambda seconds: calls.append(("sleep", seconds)), raising=False)
+        monkeypatch.setattr(actions, "sleep", lambda seconds: calls.append(("sleep", seconds)))
         return calls
     return install
 
@@ -262,7 +262,7 @@ def test_action_error_is_logged_and_does_not_advance_the_toggle(monkeypatch, cap
     actions.execute("user", TOGGLE)                                       # must not raise
     assert actions.toggle_state == {}
     assert action_results(caplog) == ["error"]
-    
+
 
 def test_toggle_state_survives_a_tabs_reload_and_uses_the_new_point(tmp_path, profile, clicks):
     bindings, tabs = tmp_path / "bindings.json", tmp_path / "tabs.json"

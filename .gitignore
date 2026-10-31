@@ -13,6 +13,7 @@ docs/archive/
 docs/REVIEW_*.md
 CLAUDE.md
 docs/RESOLVE.md
+docs/ROADMAP.md
 
 # Output of tools/record_buttons.py (the committed recordings stay)
 recordings/buttons_new.json
