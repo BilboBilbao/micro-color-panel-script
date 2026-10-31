@@ -89,9 +89,10 @@ A collection with usage 9 has no reports. The program has never sent an output o
 - Resolve probably writes whole 64-bit or 48-bit masks. The LED state cannot be read back (no input report for it was seen), so a second writer would not know the current state and could switch off LEDs set by Resolve, and Resolve may overwrite its change.
 - Open questions about the output path were partly answered by the capture below.
 
-**To check against the recordings (found in the descriptor, not verified):**
-- Report 6 is 16 x 4 = 64 data bytes plus the report id byte, i.e. 65 bytes; the program reads 64.
-- Report 5 has nine 4-byte channels from byte 1 (37 bytes on the wire, confirmed by the capture); the profile decodes 24 bits from byte 2 + 4k. Look at byte 1 + 4k in the recordings.
+**Checked against the recordings (`recordings/rotary_raw.json`, slow gestures only, 18 elements, no truncated step):**
+- Report 6 is 16 x 4 = 64 data bytes plus the report id byte, i.e. 65 bytes; the program and the recorder read 64. All 5491 recorded reports had length 64 and no read error. Bytes 49 to 63 were 0 in all of them, so nothing used is lost (the last used channel ends at byte 48). If channels 13 to 16 are ever needed, read 65 bytes. Measured only on the recording path, not separately for USB and Bluetooth.
+- Report 5 has nine 4-byte channels from byte 1 in the descriptor. Byte 1 + 4k was 0 in all 2339 recorded reports, so the 24 bit reading from byte 2 + 4k loses nothing. Read as 32 bit from byte 1 + 4k the values would be 256 times larger (trackballs multiples of 4096, rings +-4096); sign and direction are the same. Not checked: fast movements (the low byte could become non-zero if the ring value grows with speed, see above).
+- Bytes 45 and 46 (`38 04`) are the only non-zero bytes after byte 36 in report 5, although the wire report has 37 bytes. Their origin is unknown; the profile does not use them.
 
 **Capture of what Resolve sends (Phase 2b step C; USBPcap and Wireshark on Windows 11, panel on USB, Resolve 21.0.4 Studio; two short captures, one while Resolve starts and one while the user pressed buttons; the captures stay local, they are not in the repo):**
 - All traffic is HID class traffic on interface 2: interrupt OUT on endpoint 0x01, interrupt IN on endpoint 0x81, and the class requests SET_REPORT and GET_REPORT for feature reports. No vendor requests and no string descriptor requests were seen, so the vendor interface 0 plays no part here (at least in these captures).
