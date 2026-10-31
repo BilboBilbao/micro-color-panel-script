@@ -44,7 +44,7 @@ from micropanel.device import bus_name, open_panel
 from micropanel.keys import NAMED_KEYS, parse_keys
 from micropanel.log import anonymize, log
 from micropanel.platform.windows import (DPI_NAMES, acquire_single_instance, foreground_process_name,
-                                         get_monitors, monitor_index, resolve_is_foreground)
+                                         get_dpi_awareness, get_monitors, monitor_index, resolve_is_foreground)
 
 try:
     import msvcrt          # Windows only: lets the assisted steps be skipped with Enter
@@ -1089,20 +1089,6 @@ def step_rotary_inputs(ctx):
 
 
 # ---- part D1: mouse path and DPI awareness ----
-def get_dpi_awareness():
-    """DPI awareness of this process (0 unaware, 1 system, 2 per monitor), or None if it cannot be read. Windows only."""
-    import ctypes
-    try:
-        shcore = ctypes.WinDLL("shcore", use_last_error=True)
-        shcore.GetProcessDpiAwareness.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
-        shcore.GetProcessDpiAwareness.restype = ctypes.c_long
-        value = ctypes.c_int()
-        if shcore.GetProcessDpiAwareness(None, ctypes.byref(value)) == 0:
-            return value.value
-    except Exception:  # noqa: BLE001
-        pass
-    return None
-
 
 def move_mouse_through(points, sleep=time.sleep):
     """Moves the mouse (no click) to every point and reads the position back; a deviating point is tried once more.

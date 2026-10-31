@@ -11,10 +11,12 @@ from helpers import events
 
 
 class FakeShcore:
-    """Stands in for ctypes.windll.shcore: reports `state` as the awareness and returns `code` from the set call."""
+    """Stands in for ctypes.windll.shcore: reports `state` as the awareness and returns `code` from the set call.
+    read_code is what the read call returns (0 = success), read_fail makes the read call raise."""
 
-    def __init__(self, state, code=0, fail=False):
+    def __init__(self, state, code=0, fail=False, read_code=0, read_fail=False):
         self.state, self.code, self.fail = state, code, fail
+        self.read_code, self.read_fail = read_code, read_fail
 
     def SetProcessDpiAwareness(self, _value):
         if self.fail:
@@ -22,17 +24,31 @@ class FakeShcore:
         return self.code
 
     def GetProcessDpiAwareness(self, _handle, reference):
+        if self.read_fail:
+            raise OSError("simulated")
         reference._obj.value = self.state
-        return 0
+        return self.read_code
 
 
 @pytest.mark.parametrize("shcore,expected", [
     (FakeShcore(2, 0), (2, 0)),
     (FakeShcore(1, -2147024891), (1, -2147024891)),       # refused: awareness stays 1, no error is raised
     (FakeShcore(0, fail=True), (None, None)),
-], ids=["set_succeeds", "set_refused", "call_raises"])
+    (FakeShcore(2, 0, read_code=1), (None, None)),        # set call ok, but the awareness cannot be read back
+], ids=["set_succeeds", "set_refused", "call_raises", "read_fails"])
 def test_set_dpi_awareness(shcore, expected):
     assert win.set_dpi_awareness(shcore) == expected
+
+
+@pytest.mark.parametrize("shcore,expected", [
+    (FakeShcore(2), 2),
+    (FakeShcore(1), 1),
+    (FakeShcore(0), 0),
+    (FakeShcore(2, read_code=1), None),                   # the read call reports an error
+    (FakeShcore(2, read_fail=True), None),                # the read call raises
+], ids=["per_monitor", "system_aware", "unaware", "read_refused", "read_raises"])
+def test_get_dpi_awareness(shcore, expected):
+    assert win.get_dpi_awareness(shcore) == expected
 
 
 @pytest.mark.parametrize("awareness,code,expected_parts", [

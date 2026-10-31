@@ -12,6 +12,20 @@ RESOLVE_EXE = "resolve.exe"   # process name of the foreground window (case-inse
 DPI_NAMES = {0: "not DPI aware", 1: "system DPI aware", 2: "per monitor DPI aware"}
 
 
+def get_dpi_awareness(shcore=None):
+    """DPI awareness of this process (0 not aware, 1 system, 2 per monitor), or None if it cannot be read (not Windows).
+    Used by set_dpi_awareness and by --diagnose. `shcore` is only passed in by the tests."""
+    try:
+        if shcore is None:
+            shcore = ctypes.windll.shcore
+        value = ctypes.c_int()
+        if shcore.GetProcessDpiAwareness(None, ctypes.byref(value)) == 0:
+            return value.value
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def set_dpi_awareness(shcore=None):
     """Asks Windows for per-monitor DPI awareness (2) and reads back what the process has afterwards.
     Returns (awareness, result code of the set call), or (None, None) if this is not possible (not Windows).
@@ -21,12 +35,10 @@ def set_dpi_awareness(shcore=None):
         if shcore is None:
             shcore = ctypes.windll.shcore
         code = shcore.SetProcessDpiAwareness(2)
-        value = ctypes.c_int()
-        if shcore.GetProcessDpiAwareness(None, ctypes.byref(value)) == 0:
-            return value.value, code
     except Exception:  # noqa: BLE001
-        pass
-    return None, None
+        return None, None
+    awareness = get_dpi_awareness(shcore)
+    return (None, None) if awareness is None else (awareness, code)
 
 
 def dpi_warning_text(awareness, code):
