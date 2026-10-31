@@ -128,54 +128,73 @@ def test_empty_key_list_presses_nothing(monkeypatch):
     assert kb.events == []
 
 
-class FakeGui:
-    """Stands in for pyautogui: records the calls, never touches the real mouse."""
+class FakeMouse:
+    """Stands in for pynput.mouse.Controller: every move, click and sleep goes into one shared list, in order.
+    Never touches the real mouse."""
 
-    def __init__(self, start=(500, 500), click_error=None):
-        self.start, self.calls, self.click_error = start, [], click_error
-        self.PAUSE, self.FAILSAFE = 0.1, True          # the library defaults
+    def __init__(self, calls, start=(500, 500), click_error=None):
+        self.calls, self.start, self.click_error = calls, start, click_error
 
+    @property
     def position(self):
         return self.start
 
-    def click(self, *pos):
-        self.calls.append(("click", pos))
+    @position.setter
+    def position(self, pos):
+        self.calls.append(("move", tuple(pos)))
+
+    def click(self, button, count=1):
+        self.calls.append(("click", button, count))
         if self.click_error is not None:
             raise self.click_error
 
-    def moveTo(self, *pos):
-        self.calls.append(("moveTo", pos))
+
+@pytest.fixture
+def fake_mouse(monkeypatch):
+    """install(start, click_error) -> the list of calls. Replaces pynput.mouse (Button.left is "left") and the pause.
+    pyautogui is set to None: importing it raises ImportError, so no test can ever click for real."""
+    def install(start=(500, 500), click_error=None):
+        calls = []
+        mouse = types.ModuleType("pynput.mouse")
+        setattr(mouse, "Controller", lambda: FakeMouse(calls, start, click_error))
+        setattr(mouse, "Button", types.SimpleNamespace(left="left"))
+        package = types.ModuleType("pynput")
+        setattr(package, "mouse", mouse)
+        monkeypatch.setitem(sys.modules, "pynput", package)
+        monkeypatch.setitem(sys.modules, "pynput.mouse", mouse)
+        monkeypatch.setitem(sys.modules, "pyautogui", None)
+        monkeypatch.setattr(actions, "sleep", lambda seconds: calls.append(("sleep", seconds)), raising=False)
+        return calls
+    return install
 
 
-def test_click_at_returns_the_mouse_to_its_start(monkeypatch):
-    gui = FakeGui(start=(500, 400))
-    monkeypatch.setitem(sys.modules, "pyautogui", gui)
+def test_click_at_returns_the_mouse_to_its_start(fake_mouse):
+    calls = fake_mouse(start=(500, 400))
     actions.click_at((10, 20))
-    assert gui.calls == [("click", (10, 20)), ("moveTo", (500, 400))]
+    assert calls == [("move", (10, 20)), ("click", "left", 1), ("sleep", 0.05), ("move", (500, 400))]
 
 
-def test_click_at_returns_the_mouse_even_when_the_click_fails(monkeypatch):          # RV-3 (CONS-003)
-    gui = FakeGui(start=(500, 400), click_error=RuntimeError("click failed"))
-    monkeypatch.setitem(sys.modules, "pyautogui", gui)
+@pytest.mark.parametrize("point", [(-1500, -300), (200, -1100), (5000, 1700)],
+                         ids=["left_of_primary", "above_primary", "right_monitor"])
+def test_click_at_accepts_points_on_any_monitor(fake_mouse, point):
+    calls = fake_mouse(start=(500, 400))
+    actions.click_at(point)
+    assert calls == [("move", point), ("click", "left", 1), ("sleep", 0.05), ("move", (500, 400))]
+
+
+def test_click_at_returns_the_mouse_even_when_the_click_fails(fake_mouse):          # RV-3 (CONS-003)
+    calls = fake_mouse(start=(500, 400), click_error=RuntimeError("click failed"))
     with pytest.raises(RuntimeError, match="click failed"):
         actions.click_at((10, 20))
-    assert gui.calls == [("click", (10, 20)), ("moveTo", (500, 400))]
+    assert calls == [("move", (10, 20)), ("click", "left", 1), ("move", (500, 400))]      # no pause after a failed click
 
 
-def test_click_error_still_returns_the_mouse_through_execute(monkeypatch, caplog):   # RV-3
+def test_click_error_still_returns_the_mouse_through_execute(fake_mouse, caplog):   # RV-3
     caplog.set_level(logging.INFO)
-    gui = FakeGui(start=(500, 400), click_error=RuntimeError("click failed"))
-    monkeypatch.setitem(sys.modules, "pyautogui", gui)
+    calls = fake_mouse(start=(500, 400), click_error=RuntimeError("click failed"))
     actions.execute("user", ("click", (30, 40), False))                      # must not raise
     assert action_results(caplog) == ["error"]
-    assert gui.calls == [("click", (30, 40)), ("moveTo", (500, 400))]
-
-
-def test_configure_mouse_sets_pause_and_failsafe(monkeypatch):
-    gui = FakeGui()
-    monkeypatch.setitem(sys.modules, "pyautogui", gui)
-    actions.configure_mouse()
-    assert (gui.PAUSE, gui.FAILSAFE) == (0.05, False)             # FAILSAFE off: no exception in a screen corner
+    assert calls == [("move", (30, 40)), ("click", "left", 1), ("move", (500, 400))]
 
 
 TOGGLE = ("toggle", (("a", "b"), [(1, 1), (2, 2)]), False)           # False: no foreground check

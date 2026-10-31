@@ -1,6 +1,6 @@
 """Windows only: DPI awareness, the foreground program, the single instance lock.
 Standard library only. Nothing here runs at import time: the Windows API is touched only inside functions,
-so this module can be imported on any system. The DPI call itself is made by the start file, before pyautogui is imported."""
+so this module can be imported on any system. The DPI call itself is made by the start file, before the third-party packages are imported."""
 import ctypes
 import logging
 from pathlib import Path

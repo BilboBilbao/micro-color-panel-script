@@ -74,7 +74,7 @@ def test_foreground_check_error_gives_false_and_is_logged(monkeypatch, caplog):
 
 
 def test_importing_the_module_calls_no_windows_api(monkeypatch):
-    """Importing must have no side effects (no import side effects): the DPI call happens in the start file, before pyautogui."""
+    """Importing must have no side effects (no import side effects): the DPI call happens in the start file, before the third-party packages are imported."""
     calls = []
 
     class Spy:

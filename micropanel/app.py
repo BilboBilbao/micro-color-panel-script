@@ -7,7 +7,7 @@ import platform
 import sys
 
 from micropanel import __version__
-from micropanel.actions import configure_mouse, execute
+from micropanel.actions import execute
 from micropanel.config import ConfigManager, load_profile
 from micropanel.device import open_panel
 from micropanel.engine import run_engine
@@ -15,7 +15,7 @@ from micropanel.log import anonymize, emit, setup_logging
 from micropanel.platform.windows import acquire_single_instance, dpi_warning_text
 
 TESTED_PYTHON = ((3, 11), (3, 14))      # oldest and newest Python version this program was tested with
-REQUIRED_PACKAGES = {"hid": "hidapi", "pynput": "pynput", "pyautogui": "pyautogui"}   # module name -> package name
+REQUIRED_PACKAGES = {"hid": "hidapi", "pynput": "pynput"}   # module name -> package name
 NOT_WINDOWS_MESSAGE = ("This program only works on Windows at the moment (macOS support is planned).\n"
                        "Detected system: {system}")
 SETUP_FAILED_MESSAGE = ("The program could not start: {error}\n"
@@ -52,12 +52,11 @@ def missing_package_message(module_name, version_info):
 
 def setup(dpi_state, to_file=True, to_console=True):
     """Everything that must happen once at start (not at import time). dpi_state is the result of
-    set_dpi_awareness(), made by the start file before pyautogui was imported."""
+    set_dpi_awareness(), made by the start file before the third-party packages were imported."""
     setup_logging(to_file, to_console)
     warning = dpi_warning_text(*dpi_state)
     if warning:
         emit(logging.WARNING, "setup_warning", "%s", warning, awareness=dpi_state[0])
-    configure_mouse()
 
 
 def parse_args(argv=None):

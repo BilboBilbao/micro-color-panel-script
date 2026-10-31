@@ -14,7 +14,6 @@ from micropanel.log import AnonymizeFilter, FileFormatter, LOG_FORMAT
 def quiet_start(monkeypatch):
     monkeypatch.setattr(app, "setup_logging", lambda *args, **kwargs: None)      # no console handler on a captured stream
     monkeypatch.setattr(app, "acquire_single_instance", lambda: True)
-    monkeypatch.setattr(app, "configure_mouse", lambda: None)                    # the real one imports pyautogui
 
 
 def test_unexpected_error_is_logged_with_function_and_line(monkeypatch, caplog, quiet_start, as_windows):   # B2
@@ -62,12 +61,18 @@ def test_log_output_hides_home_and_project_folder():                            
 def test_setup_warns_about_dpi_only_when_not_per_monitor(monkeypatch, caplog, state, warnings):
     caplog.set_level(logging.INFO)
     monkeypatch.setattr(app, "setup_logging", lambda *args, **kwargs: None)
-    monkeypatch.setattr(app, "configure_mouse", lambda: None)
     app.setup(state, to_file=False, to_console=False)
     found = [r.fields for r in caplog.records if getattr(r, "fields", {}).get("event") == "setup_warning"]
     assert len(found) == warnings
     if warnings:
         assert found[0]["awareness"] == 1
+
+
+def test_setup_needs_no_mouse_package(monkeypatch):                          # B11
+    monkeypatch.setattr(app, "setup_logging", lambda *args, **kwargs: None)
+    monkeypatch.setitem(sys.modules, "pyautogui", None)                      # None in sys.modules: importing raises ImportError
+    monkeypatch.setitem(sys.modules, "pynput.mouse", None)
+    app.setup((2, 0), to_file=False, to_console=False)                       # must not import any mouse package
 
 
 def test_base_is_the_project_folder():

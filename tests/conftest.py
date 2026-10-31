@@ -1,5 +1,5 @@
 """Test setup: makes the project folder and the tests folder importable and provides the shared fixtures.
-No test touches the real panel, keyboard or mouse: every test that needs hid, pynput or pyautogui
+No test touches the real panel, keyboard or mouse: every test that needs hid or pynput
 replaces the package by a fake for that one test."""
 import sys
 from pathlib import Path

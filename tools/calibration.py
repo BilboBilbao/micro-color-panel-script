@@ -8,6 +8,7 @@ Steps for each point:
 Existing points in tabs.json are kept; points with the same name are overwritten.
 The Resolve window must be positioned the way you will use it later.
 The points are valid for this computer only (screens, scaling and window position). Calibrate on every computer.
+Points on a monitor left of or above the main monitor have negative numbers; that is correct.
 
 Start (from the project folder): python tools\\calibration.py
 """
@@ -20,8 +21,7 @@ BASE = Path(__file__).resolve().parent.parent
 TABS_FILE = BASE / "tabs.json"
 
 # Same DPI setting as the program (set_dpi_awareness in micropanel/platform/windows.py, called first in panel_main.py).
-# This must happen BEFORE pyautogui is imported: pyautogui sets the weaker
-# "system" awareness (1) when it is imported, and Windows then refuses the change to 2.
+# This must happen BEFORE the mouse package is imported (see panel_main.py), the same order as in the program.
 _awareness = None
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -33,9 +33,9 @@ except Exception as e:  # noqa: BLE001
 if _awareness is not None and _awareness != 2:
     print(f"WARNING: DPI awareness is {_awareness} instead of 2 (per monitor). The points may not match panel_main.py.")
 
-import pyautogui  # noqa: E402  (deliberately after the DPI call)
+from pynput.mouse import Controller  # noqa: E402  (deliberately after the DPI call)
 
-pyautogui.FAILSAFE = False
+mouse = Controller()
 
 tabs = {}
 if TABS_FILE.exists():
@@ -56,8 +56,8 @@ while True:
     for i in (3, 2, 1):
         print(" ", i, end="", flush=True)
         time.sleep(1)
-    p = pyautogui.position()
-    tabs[name] = [int(p.x), int(p.y)]
+    x, y = mouse.position
+    tabs[name] = [int(x), int(y)]
     TABS_FILE.write_text(json.dumps(tabs, indent=2), encoding="utf-8")   # saved after every point
     print(f"\n  -> {name}: {tabs[name]} saved")
 

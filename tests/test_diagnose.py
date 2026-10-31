@@ -4,7 +4,7 @@ and from docs/DIAGNOSTICS.md."""
 import re
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -82,19 +82,22 @@ def test_judge_dpi(value, status, part):
 
 
 class FakeMouse:
-    """Simulated pyautogui: records moves, can clamp x at a screen edge, be off once or fail a read; never clicks."""
+    """Simulated pynput.mouse.Controller: records moves, can clamp x at a screen edge, be off once or fail a read; never clicks."""
 
     def __init__(self, start=(500, 500), clamp_x=None, off_once=None, fail_on_read=None):
         self.pos, self.moves, self.reads = list(start), [], 0
         self.clamp_x, self.off_once, self.fail_on_read = clamp_x, dict(off_once or {}), fail_on_read
 
+    @property
     def position(self):
         self.reads += 1
         if self.fail_on_read and self.reads == self.fail_on_read:
             raise RuntimeError("simulated read error")
-        return SimpleNamespace(x=self.pos[0], y=self.pos[1])
+        return (self.pos[0], self.pos[1])
 
-    def moveTo(self, x, y):
+    @position.setter
+    def position(self, value):
+        x, y = value
         self.moves.append((x, y))
         if self.clamp_x is not None:
             x = min(x, self.clamp_x)
@@ -109,9 +112,15 @@ class FakeMouse:
 POINTS = {"tab 'a'": (100, 120), "tab 'b'": (300, 340)}
 
 
-def mouse_path(monkeypatch, gui):
-    monkeypatch.setitem(sys.modules, "pyautogui", gui)         # the package is imported inside move_mouse_through
-    return st.move_mouse_through(POINTS, sleep=lambda _seconds: None)
+def mouse_path(monkeypatch, gui, points=POINTS):
+    mouse = ModuleType("pynput.mouse")
+    setattr(mouse, "Controller", lambda: gui)
+    package = ModuleType("pynput")
+    setattr(package, "mouse", mouse)
+    monkeypatch.setitem(sys.modules, "pynput", package)        # the package is imported inside move_mouse_through
+    monkeypatch.setitem(sys.modules, "pynput.mouse", mouse)
+    monkeypatch.setitem(sys.modules, "pyautogui", None)        # the old library can never be imported: no real mouse movement
+    return st.move_mouse_through(points, sleep=lambda _seconds: None)
 
 
 def test_mouse_path_reads_every_point_back_and_returns_to_the_start(monkeypatch):
@@ -141,6 +150,14 @@ def test_mouse_path_error_is_passed_on_and_the_mouse_is_put_back(monkeypatch):
     with pytest.raises(RuntimeError):
         mouse_path(monkeypatch, gui)
     assert gui.moves[-1] == (500, 500)
+
+
+def test_mouse_path_reaches_points_left_of_the_primary_monitor(monkeypatch):
+    points = {"tab 'a'": (-1500, 200), "tab 'b'": (300, 340)}
+    start, got, end = mouse_path(monkeypatch, FakeMouse(), points)
+    assert start == (500, 500) and end == (500, 500)
+    assert got == points
+    assert [status for status, _text in st.judge_moves(points, got)] == ["PASS", "PASS"]
 
 
 # --------------------------------------------------------------------------

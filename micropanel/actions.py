@@ -1,7 +1,9 @@
-"""Running actions: keys, mouse click, toggle. Needs the third-party packages pynput and pyautogui, imported inside
-the functions. Whoever uses this module must call set_dpi_awareness() (micropanel/platform/windows.py) before
-pyautogui is imported anywhere: otherwise Windows refuses per-monitor awareness and clicks can miss."""
+"""Running actions: keys, mouse click, toggle. Needs the third-party package pynput, imported inside the functions.
+Whoever uses this module must call set_dpi_awareness() (micropanel/platform/windows.py) at the start of the program:
+only with per-monitor awareness are the click points (pixels of the whole desktop, as tools/calibration.py records
+them) the same physical pixels on every monitor. Otherwise clicks can miss on monitors with scaling."""
 import logging
+from time import sleep
 
 from micropanel.log import emit
 from micropanel.platform.windows import RESOLVE_EXE, resolve_is_foreground
@@ -54,23 +56,22 @@ def press_keys(keys):
             raise release_error
 
 
-def configure_mouse():
-    """Settings of pyautogui, once at start (called by app.setup)."""
-    import pyautogui
-    pyautogui.PAUSE = 0.05
-    # FAILSAFE stays off on purpose: with it on, pyautogui raises an exception when the cursor is in a screen corner.
-    # Every action is one instant move or click and the cursor goes back afterwards, and a calibrated click point
-    # may legitimately lie in a corner, so the abort would only produce false errors.
-    pyautogui.FAILSAFE = False
+CLICK_PAUSE = 0.05   # seconds between the click and the move back (as before with pyautogui.PAUSE)
 
 
 def click_at(pos):
-    import pyautogui
-    x0, y0 = pyautogui.position()
+    """One left click at pos = (x, y), pixels of the whole desktop. Negative numbers are fine (a monitor left of or above
+    the main monitor). pynput hands the numbers to the system unchanged. The cursor goes back to where it was,
+    also when the click fails. The Controller is created per click and not kept: nothing to reset."""
+    from pynput.mouse import Button, Controller
+    mouse = Controller()
+    x0, y0 = mouse.position
     try:
-        pyautogui.click(*pos)
+        mouse.position = pos
+        mouse.click(Button.left, 1)
+        sleep(CLICK_PAUSE)
     finally:                      # the cursor goes back even when the click fails
-        pyautogui.moveTo(x0, y0)
+        mouse.position = (x0, y0)
 
 
 # --------------------------------------------------------------------------

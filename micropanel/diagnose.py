@@ -21,7 +21,7 @@ Part D  mouse move to every click point and DPI check          (assisted, skippe
 The result is written to reports/diagnose_<date>_<time>.txt. Names of other programs, user name, computer name
 and file paths are not part of the report.
 
-Needs the third-party packages hid and pyautogui; they are imported inside the functions that use them.
+Needs the third-party packages hid and pynput; they are imported inside the functions that use them.
 """
 import logging
 import os
@@ -141,7 +141,7 @@ def step_environment(ctx):
 
 def step_packages(ctx):
     found, missing = [], []
-    for dist in ("hidapi", "pynput", "pyautogui"):
+    for dist in ("hidapi", "pynput"):
         try:
             found.append(f"{dist} {metadata.version(dist)}")
         except metadata.PackageNotFoundError:
@@ -1152,23 +1152,24 @@ def get_dpi_awareness():
 def move_mouse_through(points, sleep=time.sleep):
     """Moves the mouse (no click) to every point and reads the position back; a deviating point is tried once more.
     The mouse is always put back to where it was. Returns (start, {label: position read back}, end)."""
-    import pyautogui as gui
+    from pynput.mouse import Controller
+    mouse = Controller()
 
     def where():
-        point = gui.position()
-        return int(point.x), int(point.y)
+        x, y = mouse.position
+        return int(x), int(y)
 
     start, got = where(), {}
     try:
         for label, (x, y) in points.items():
             for _attempt in (1, 2):
-                gui.moveTo(x, y)
+                mouse.position = (x, y)
                 sleep(0.15)
                 got[label] = where()
                 if max(abs(got[label][0] - x), abs(got[label][1] - y)) <= MOUSE_TOLERANCE:
                     break
     finally:
-        gui.moveTo(*start)
+        mouse.position = start
         sleep(0.15)
     return start, got, where()
 

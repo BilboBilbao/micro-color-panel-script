@@ -1,4 +1,4 @@
-"""Micro Color Panel -> extra key bindings for DaVinci Resolve (v0.3.36)
+"""Micro Color Panel -> extra key bindings for DaVinci Resolve (v0.3.37)
 
 Start:
   python panel_main.py                      normal operation
@@ -21,15 +21,16 @@ import sys
 
 from micropanel.platform.windows import set_dpi_awareness
 
-# This must run BEFORE pyautogui is imported: pyautogui sets the weaker 'system' awareness (1) when it is
-# imported (measured), and Windows then refuses the change to 2. The result is logged by app.setup().
+# This must run BEFORE the third-party packages are imported: a package can set the weaker 'system' awareness (1)
+# when it is imported (measured with pyautogui, which is no longer used), and Windows then refuses the change to 2.
+# The result is logged by app.setup().
 DPI_STATE = set_dpi_awareness()
 
 from micropanel.app import main, missing_package_message  # noqa: E402  (after the DPI call above)
 
 try:
     import hid                 # noqa: F401  package check only (micropanel imports it lazily)
-    import pyautogui           # noqa: F401  package check only (micropanel imports it lazily)
+    import pynput.mouse        # noqa: F401  package check only (micropanel imports it lazily)
     import pynput.keyboard     # noqa: F401  package check only (micropanel imports it lazily)
 except ImportError as _import_error:
     _text = missing_package_message(getattr(_import_error, "name", None), sys.version_info)
