@@ -36,7 +36,7 @@ from importlib import metadata
 from pathlib import Path
 
 from micropanel import BASE, __version__
-from micropanel.actions import execute, to_pynput, toggle_state
+from micropanel.actions import MOUSE_TOLERANCE, execute, to_pynput, toggle_state
 from micropanel.app import python_version_note
 from micropanel.config import BINDINGS_PATH, TABS_PATH, ConfigError, ConfigManager, as_point, load_profile, read_json
 from micropanel.decoder import decode_held, decode_rotary, make_lookup, make_rotary_lookup, triggers_for_report
@@ -747,7 +747,6 @@ def run_part_c(ctx):
 # --------------------------------------------------------------------------
 # --full (end of part C) and part D: judging functions (pure, tested in tests/test_diagnose.py) and the assisted steps
 # --------------------------------------------------------------------------
-MOUSE_TOLERANCE = 1          # pixels
 FULL_PAUSE = 0.2             # seconds between two inputs of the --full run
 
 

@@ -6,7 +6,7 @@ import logging
 from time import sleep
 
 from micropanel.log import emit
-from micropanel.platform.windows import RESOLVE_EXE, resolve_is_foreground
+from micropanel.platform.windows import RESOLVE_EXE, get_monitors, monitor_index, resolve_is_foreground
 
 # --------------------------------------------------------------------------
 # Neutral key names (micropanel/keys.py) -> real keys (pynput)
@@ -57,20 +57,41 @@ def press_keys(keys):
 
 
 CLICK_PAUSE = 0.05   # seconds between the click and the move back (as before with pyautogui.PAUSE)
+MOUSE_TOLERANCE = 1  # pixels: how far the cursor may land from the point it was sent to (also used by --diagnose)
+
+
+class ClickBlocked(Exception):
+    """The click was not made: the point lies outside all monitors, or the cursor did not land there.
+    `result` is the value that execute() logs in the 'result' field of the 'action' event."""
+
+    def __init__(self, result, text):
+        super().__init__(text)
+        self.result = result
 
 
 def click_at(pos):
     """One left click at pos = (x, y), pixels of the whole desktop. Negative numbers are fine (a monitor left of or above
-    the main monitor). pynput hands the numbers to the system unchanged. The cursor goes back to where it was,
-    also when the click fails. The Controller is created per click and not kept: nothing to reset."""
+    the main monitor). Two checks come first, otherwise ClickBlocked is raised and nothing is clicked: the point lies
+    inside a monitor (list read fresh for every click, so a changed screen setup is noticed), and the cursor really is
+    there after the move (read back, MOUSE_TOLERANCE pixels, one more try). pynput hands the numbers to the system
+    unchanged. The cursor goes back to where it was, also when the click fails or is blocked. The Controller is created
+    per click and not kept: nothing to reset."""
+    if monitor_index(get_monitors(), pos) is None:
+        raise ClickBlocked("blocked_position", f"click point {tuple(pos)} lies outside all monitors")
     from pynput.mouse import Button, Controller
     mouse = Controller()
     x0, y0 = mouse.position
     try:
-        mouse.position = pos
+        for _attempt in (1, 2):
+            mouse.position = pos
+            x, y = mouse.position
+            if abs(x - pos[0]) <= MOUSE_TOLERANCE and abs(y - pos[1]) <= MOUSE_TOLERANCE:
+                break
+        else:
+            raise ClickBlocked("blocked_cursor", f"the cursor did not land on click point {tuple(pos)}")
         mouse.click(Button.left, 1)
         sleep(CLICK_PAUSE)
-    finally:                      # the cursor goes back even when the click fails
+    finally:                      # the cursor goes back even when the click fails or is blocked
         mouse.position = (x0, y0)
 
 
@@ -103,6 +124,10 @@ def execute(name, action):
             i = toggle_state.get(names, 0) % len(names)
             click_at(positions[i])
             toggle_state[names] = (i + 1) % len(names)
+    except ClickBlocked as e:
+        emit(logging.WARNING, "action", "%s blocked: %s", name, e,
+             binding=name, type=action_type, result=e.result)
+        return
     except Exception as e:  # noqa: BLE001
         emit(logging.ERROR, "action", "Error in %s: %r", name, e,
              binding=name, type=action_type, result="error")
