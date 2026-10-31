@@ -1,4 +1,4 @@
-"""Windows only: DPI awareness, the foreground program, the single instance lock.
+"""Windows only: DPI awareness, the monitor list, the foreground program, the single instance lock.
 Standard library only. Nothing here runs at import time: the Windows API is touched only inside functions,
 so this module can be imported on any system. The DPI call itself is made by the start file, before the third-party packages are imported."""
 import ctypes
@@ -36,6 +36,60 @@ def dpi_warning_text(awareness, code):
     name = DPI_NAMES.get(awareness, f"unknown value {awareness}")
     return (f"DPI awareness is '{name}' ({awareness}) instead of per monitor (2), set call returned "
             f"{(code or 0) & 0xFFFFFFFF:#010x}: clicks can miss on monitors with different scaling")
+
+
+# --------------------------------------------------------------------------
+# Monitors
+# --------------------------------------------------------------------------
+def get_monitors():
+    """List of monitors: position, size, scale, primary flag (Windows API through ctypes).
+    Coordinates are pixels of the whole desktop (negative numbers are possible). Call it again whenever a fresh list is needed."""
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    shcore = ctypes.WinDLL("shcore", use_last_error=True)
+
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
+                    ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HANDLE, wintypes.HDC,
+                                       ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
+    user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
+    user32.GetMonitorInfoW.restype = wintypes.BOOL
+    user32.EnumDisplayMonitors.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.RECT), callback_type, wintypes.LPARAM]
+    user32.EnumDisplayMonitors.restype = wintypes.BOOL
+    shcore.GetDpiForMonitor.argtypes = [wintypes.HANDLE, ctypes.c_int,
+                                        ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
+
+    monitors = []
+
+    def callback(hmonitor, _hdc, _rect, _lparam):
+        info = MONITORINFO()
+        info.cbSize = ctypes.sizeof(MONITORINFO)
+        if user32.GetMonitorInfoW(hmonitor, ctypes.byref(info)):
+            r = info.rcMonitor
+            scale = None
+            try:
+                dpi_x, dpi_y = ctypes.c_uint(), ctypes.c_uint()
+                if shcore.GetDpiForMonitor(hmonitor, 0, ctypes.byref(dpi_x), ctypes.byref(dpi_y)) == 0:
+                    scale = round(dpi_x.value * 100 / 96)
+            except Exception:  # noqa: BLE001
+                pass
+            monitors.append({"left": r.left, "top": r.top, "right": r.right, "bottom": r.bottom,
+                             "primary": bool(info.dwFlags & 1), "scale": scale})
+        return True
+
+    user32.EnumDisplayMonitors(None, None, callback_type(callback), 0)
+    return monitors
+
+
+def monitor_index(monitors, point):
+    """Number (counting from 1) of the first monitor that contains the point (x, y), or None if it lies outside all of them.
+    The right and the bottom edge belong to no monitor. Pure function, no system access."""
+    x, y = point
+    return next((i for i, m in enumerate(monitors, start=1)
+                 if m["left"] <= x < m["right"] and m["top"] <= y < m["bottom"]), None)
 
 
 # --------------------------------------------------------------------------

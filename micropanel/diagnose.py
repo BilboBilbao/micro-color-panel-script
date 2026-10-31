@@ -44,7 +44,7 @@ from micropanel.device import bus_name, open_panel
 from micropanel.keys import NAMED_KEYS, parse_keys
 from micropanel.log import anonymize, log
 from micropanel.platform.windows import (DPI_NAMES, acquire_single_instance, foreground_process_name,
-                                         resolve_is_foreground)
+                                         get_monitors, monitor_index, resolve_is_foreground)
 
 try:
     import msvcrt          # Windows only: lets the assisted steps be skipped with Enter
@@ -183,49 +183,6 @@ def step_config(ctx):
 
 
 # ---- screens and click points (Windows) ----
-def get_monitors():
-    """List of monitors: position, size, scale, primary flag (Windows API through ctypes)."""
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    shcore = ctypes.WinDLL("shcore", use_last_error=True)
-
-    class MONITORINFO(ctypes.Structure):
-        _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT),
-                    ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
-
-    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HANDLE, wintypes.HDC,
-                                       ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
-    user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
-    user32.GetMonitorInfoW.restype = wintypes.BOOL
-    user32.EnumDisplayMonitors.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.RECT), callback_type, wintypes.LPARAM]
-    user32.EnumDisplayMonitors.restype = wintypes.BOOL
-    shcore.GetDpiForMonitor.argtypes = [wintypes.HANDLE, ctypes.c_int,
-                                        ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
-
-    monitors = []
-
-    def callback(hmonitor, _hdc, _rect, _lparam):
-        info = MONITORINFO()
-        info.cbSize = ctypes.sizeof(MONITORINFO)
-        if user32.GetMonitorInfoW(hmonitor, ctypes.byref(info)):
-            r = info.rcMonitor
-            scale = None
-            try:
-                dpi_x, dpi_y = ctypes.c_uint(), ctypes.c_uint()
-                if shcore.GetDpiForMonitor(hmonitor, 0, ctypes.byref(dpi_x), ctypes.byref(dpi_y)) == 0:
-                    scale = round(dpi_x.value * 100 / 96)
-            except Exception:  # noqa: BLE001
-                pass
-            monitors.append({"left": r.left, "top": r.top, "right": r.right, "bottom": r.bottom,
-                             "primary": bool(info.dwFlags & 1), "scale": scale})
-        return True
-
-    user32.EnumDisplayMonitors(None, None, callback_type(callback), 0)
-    return monitors
-
-
 def collect_click_points():
     """Click points of tabs.json and of 'click' bindings with a fixed position (read only).
     A point counts only if the program itself would accept it (config.as_point)."""
@@ -254,9 +211,8 @@ def judge_click_points(monitors, points):
     """Rows (status, text) for the click points: inside a monitor or not. Pure function, no system access.
     A point outside every monitor usually means that tabs.json was calibrated on another computer."""
     rows, outside = [], 0
-    for label, (x, y) in points.items():
-        index = next((i for i, m in enumerate(monitors, start=1)
-                      if m["left"] <= x < m["right"] and m["top"] <= y < m["bottom"]), None)
+    for label, point in points.items():
+        index = monitor_index(monitors, point)
         if index:
             rows.append(("PASS", f"Click point {label} lies inside monitor {index}"))
         else:

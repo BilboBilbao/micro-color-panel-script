@@ -1,4 +1,4 @@
-"""Micro Color Panel -> extra key bindings for DaVinci Resolve (v0.3.37)
+"""Micro Color Panel -> extra key bindings for DaVinci Resolve (v0.3.38)
 
 Start:
   python panel_main.py                      normal operation

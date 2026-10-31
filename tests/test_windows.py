@@ -93,3 +93,27 @@ def test_importing_the_module_calls_no_windows_api(monkeypatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)                                   # a separate copy, the real module stays untouched
     assert calls == []
+
+def monitor(left, top, right, bottom):
+    return {"left": left, "top": top, "right": right, "bottom": bottom, "primary": False, "scale": 100}
+
+
+ONE = [monitor(0, 0, 1920, 1080)]
+TWO = ONE + [monitor(1920, 0, 3840, 1080)]
+LEFT = ONE + [monitor(-1920, 0, 0, 1080)]          # second monitor left of the main monitor
+
+
+@pytest.mark.parametrize("monitors,point,expected", [
+    (ONE, (100, 100), 1),
+    (ONE, (0, 0), 1),                                 # top left corner belongs to the monitor
+    (ONE, (1919, 1079), 1),                           # last pixel
+    (ONE, (1920, 500), None),                         # the right edge is already outside
+    (ONE, (500, 1080), None),                         # the bottom edge is already outside
+    (ONE, (-1, 500), None),
+    (TWO, (2069, 675), 2),
+    (LEFT, (-1500, 300), 2),                          # negative numbers are valid
+    ([], (100, 100), None),                           # no monitor known: outside
+], ids=["inside", "top_left_corner", "last_pixel", "right_edge", "bottom_edge", "left_of_all",
+        "second_monitor", "left_of_primary", "no_monitors"])
+def test_monitor_index(monitors, point, expected):
+    assert win.monitor_index(monitors, point) == expected
