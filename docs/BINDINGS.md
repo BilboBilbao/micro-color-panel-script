@@ -63,7 +63,7 @@ Every entry needs a field `type`: `keys`, `click` or `toggle`.
 | toggle | `{ "type": "toggle", "tabs": ["primaries", "hdr"] }` | every press clicks the next tab in the list |
 | any program | `{ "type": "keys", "keys": "media_play_pause", "only_resolve": false }` | action runs in any program |
 
-`tabs.json` is a list of names and screen positions, for example `{ "primaries": [1200, 800], "hdr": [1260, 800] }`. The positions are valid for one computer, one monitor layout and one window position only. That is why there is no example file: create it with `tools/calibration.py`.
+`tabs.json` is a list of names and screen positions, for example `{ "primaries": [1200, 800], "hdr": [1260, 800] }`. The positions are valid for one computer, one monitor layout and one window position only. That is why there is no example file: create it with `tools/calibration.py`. The calibration also saves the monitor layout in `tabs.json` under `_monitors` (a note entry, do not edit it by hand). If the monitors differ when the file is loaded, the log shows a warning `Monitor layout differs ...` and the bindings stay active: calibrate again. Files without `_monitors` still load without a message.
 
 - `only_resolve` is `true` by default: the action only runs while Resolve is in the foreground.
 - Mouse clicks: the safety abort of the mouse library (moving the cursor into a screen corner) is switched off on purpose. Every click is one instant move and the cursor returns afterwards, and a calibrated point may lie in a corner.

@@ -244,3 +244,123 @@ def test_unreadable_file_does_not_crash_poll_and_keeps_actions(tmp_path, profile
         "tuple", "dict", "none"])
 def test_as_point(value, expected):                                       # rule in CLAUDE.md section 6 (_as_point renamed)
     assert cfg.as_point(value) == expected
+
+
+# --------------------------------------------------------------------------
+# B23: monitor layout saved in tabs.json under "_monitors"
+# --------------------------------------------------------------------------
+def mon(left, top, right, bottom, primary=False, scale=100):
+    """One monitor in the format of get_monitors()."""
+    return {"left": left, "top": top, "right": right, "bottom": bottom, "primary": primary, "scale": scale}
+
+
+ONE = [mon(0, 0, 2560, 1440, primary=True)]
+TWO = [mon(0, 0, 2560, 1440, primary=True), mon(2560, 0, 4480, 1080)]
+SAVED_ONE = [[0, 0, 2560, 1440]]
+SAVED_TWO = [[0, 0, 2560, 1440], [2560, 0, 4480, 1080]]
+
+
+def layout_config(tmp_path, profile, saved, monitors):
+    """Loaded ConfigManager; tabs.json holds the tab 'x' and, unless saved is None, the key _monitors."""
+    tabs = {"x": [10, 20]}
+    if saved is not None:
+        tabs["_monitors"] = saved
+    write(tmp_path / "bindings.json", {"user": {"type": "click", "tab": "x"}})
+    write(tmp_path / "tabs.json", tabs)
+    config = cfg.ConfigManager(set(profile.buttons), profile.free_bindings,
+                              tmp_path / "bindings.json", tmp_path / "tabs.json", interval=0, monitors=monitors)
+    config.load(initial=True)
+    return config
+
+
+@pytest.mark.parametrize("value,expected", [
+    ([[2560, 0, 4480, 1080], [0, 0, 2560, 1440]], [(0, 0, 2560, 1440), (2560, 0, 4480, 1080)]),
+    ([[-1920, 0, 0, 1080]], [(-1920, 0, 0, 1080)]),
+    ([], None),
+    ({"a": 1}, None),
+    ([[0, 0, 100]], None),
+    ([[True, 0, 100, 100]], None),
+    ([[0, 0, 100.5, 100]], None),
+    ([[10, 0, 10, 100]], None),
+], ids=["valid_sorted", "negative", "empty_list", "not_a_list", "three_numbers", "bool", "float", "empty_rectangle"])
+def test_parse_layout(value, expected):                                   # B23
+    assert cfg.parse_layout(value) == expected
+
+
+def test_current_layout_keeps_only_the_rectangles_sorted():              # B23
+    monitors = [mon(2560, 0, 4480, 1080, scale=150), mon(0, 0, 2560, 1440, primary=True)]
+    assert cfg.current_layout(monitors) == [(0, 0, 2560, 1440), (2560, 0, 4480, 1080)]
+
+
+def test_tabs_without_layout_load_silently(tmp_path, profile, caplog):   # B23: old files still load
+    caplog.set_level(logging.INFO)
+    config = layout_config(tmp_path, profile, None, lambda: TWO)
+    assert list(config.actions) == ["user"]
+    assert "monitor_layout_changed" not in events(caplog)
+    assert "bad_monitors" not in [f["reason"] for f in fields(caplog, "config_warning")]
+
+
+def test_same_layout_gives_no_warning(tmp_path, profile, caplog):        # B23
+    caplog.set_level(logging.INFO)
+    config = layout_config(tmp_path, profile, SAVED_TWO, lambda: TWO)
+    assert list(config.actions) == ["user"]
+    assert "monitor_layout_changed" not in events(caplog)
+
+
+def test_same_layout_in_other_order_gives_no_warning(tmp_path, profile, caplog):   # B23
+    caplog.set_level(logging.INFO)
+    layout_config(tmp_path, profile, SAVED_TWO, lambda: list(reversed(TWO)))
+    assert "monitor_layout_changed" not in events(caplog)
+
+
+@pytest.mark.parametrize("saved,current", [
+    (SAVED_TWO, ONE),
+    (SAVED_ONE, TWO),
+    (SAVED_TWO, [mon(0, 0, 2560, 1440, primary=True), mon(2560, 100, 4480, 1180)]),
+    (SAVED_TWO, [mon(0, 0, 1920, 1080, primary=True), mon(1920, 0, 3840, 1080)]),
+], ids=["monitor_missing", "monitor_added", "monitor_moved", "resolution_changed"])
+def test_different_layout_warns_once_and_keeps_bindings(tmp_path, profile, caplog, saved, current):   # B23
+    caplog.set_level(logging.INFO)
+    config = layout_config(tmp_path, profile, saved, lambda: current)
+    assert events(caplog).count("monitor_layout_changed") == 1
+    assert list(config.actions) == ["user"]
+
+
+@pytest.mark.parametrize("saved", ["abc", [[0, 0, 100]]], ids=["not_a_list", "broken_rectangle"])
+def test_invalid_layout_is_ignored_with_one_warning(tmp_path, profile, caplog, saved):   # B23
+    caplog.set_level(logging.INFO)
+    config = layout_config(tmp_path, profile, saved, lambda: TWO)
+    assert [f["reason"] for f in fields(caplog, "config_warning")].count("bad_monitors") == 1
+    assert "monitor_layout_changed" not in events(caplog)
+    assert list(config.actions) == ["user"]
+
+
+def test_reload_with_different_layout_warns_once(tmp_path, profile, caplog):   # B23
+    caplog.set_level(logging.INFO)
+    config = layout_config(tmp_path, profile, None, lambda: TWO)
+    assert "monitor_layout_changed" not in events(caplog)
+    write(tmp_path / "tabs.json", {"x": [10, 20], "_monitors": [[0, 0, 100, 100]]})
+    config.poll()
+    config.poll()
+    assert events(caplog).count("monitor_layout_changed") == 1
+
+
+def test_failing_monitor_list_still_loads_bindings(tmp_path, profile, caplog):   # B23
+    caplog.set_level(logging.INFO)
+
+    def broken():
+        raise OSError("no monitors")
+
+    config = layout_config(tmp_path, profile, SAVED_TWO, broken)
+    assert list(config.actions) == ["user"]
+    assert [f["reason"] for f in fields(caplog, "config_warning")].count("monitor_list_failed") == 1
+
+
+def test_layout_warning_text_and_fields(tmp_path, profile, caplog):      # B23
+    caplog.set_level(logging.INFO)
+    layout_config(tmp_path, profile, SAVED_ONE, lambda: TWO)
+    text = messages(caplog, "monitor_layout_changed")[0]
+    assert "tabs.json" in text and "calibration.py" in text
+    assert str(tmp_path) not in text
+    found = fields(caplog, "monitor_layout_changed")[0]
+    assert (found["saved"], found["current"]) == (1, 2)

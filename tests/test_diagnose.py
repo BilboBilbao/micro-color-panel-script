@@ -634,3 +634,55 @@ def test_collect_click_points_collects_valid_points_only(monkeypatch, tmp_path):
         '{"_note": {"type": "click", "pos": [9, 9]}, "k": {"type": "keys", "keys": "f9"}, '
         '"c": {"type": "click", "pos": [3, 4]}, "d": {"type": "click"}}')
     assert st.collect_click_points() == {"tab 'a'": (1, 2), "binding 'c'": (3, 4)}
+
+
+# --------------------------------------------------------------------------
+# B23: monitor layout saved in tabs.json ("_monitors") in the diagnose
+# --------------------------------------------------------------------------
+SAVED_ONE = [[0, 0, 1920, 1080]]
+
+
+@pytest.mark.parametrize("tabs,monitors,expected,part", [
+    ({"a": [1, 2], "_monitors": SAVED_ONE}, ONE, "PASS", "matches"),
+    ({"a": [1, 2], "_monitors": [[1920, 0, 3840, 1080], [0, 0, 1920, 1080]]}, TWO, "PASS", "matches"),
+    ({"a": [1, 2], "_monitors": SAVED_ONE}, TWO, "WARN", "differs"),
+    ({"a": [1, 2], "_monitors": [[0, 0, 2560, 1440]]}, ONE, "WARN", "differs"),
+    ({"a": [1, 2]}, ONE, "SKIP", "calibration.py"),
+    ({"a": [1, 2], "_monitors": "abc"}, ONE, "WARN", "ignored"),
+    ({}, ONE, None, None),
+    (None, ONE, None, None),
+], ids=["same", "same_other_order", "monitor_added", "resolution_changed", "no_layout_saved", "invalid_layout",
+        "empty_tabs", "unreadable_tabs"])
+def test_judge_saved_layout(tabs, monitors, expected, part):             # B23
+    row = st.judge_saved_layout(monitors, tabs)
+    if expected is None:
+        assert row is None
+    else:
+                assert row is not None
+                assert row[0] == expected
+                assert part in row[1]
+
+
+def test_screens_step_reports_the_saved_layout(monkeypatch, tmp_path):   # B23
+    _click_point_files(monkeypatch, tmp_path, '{"a": [100, 100], "_monitors": [[0, 0, 2560, 1440]]}', "{}")
+    monkeypatch.setattr(st, "IS_WINDOWS", True)
+    monkeypatch.setattr(st, "get_monitors", lambda: ONE)
+    ctx = st.Context(True)
+    st.step_screens(ctx)
+    assert [status for status, _text in ctx.rows][-2:] == ["PASS", "WARN"]
+    assert "differs" in ctx.rows[-1][1]
+
+
+def test_screens_step_without_tabs_has_no_layout_row(monkeypatch, tmp_path):   # B23 (green at once)
+    _click_point_files(monkeypatch, tmp_path, "{}", "{}")
+    monkeypatch.setattr(st, "IS_WINDOWS", True)
+    monkeypatch.setattr(st, "get_monitors", lambda: ONE)
+    ctx = st.Context(True)
+    st.step_screens(ctx)
+    assert "Saved monitor layout" not in " | ".join(text for _status, text in ctx.rows)
+
+
+def test_collect_click_points_ignores_the_saved_layout(monkeypatch, tmp_path):   # B23 (pins old behavior, green at once)
+    _click_point_files(monkeypatch, tmp_path,
+                       '{"a": [1, 2], "_monitors": [[0, 0, 100, 100], [100, 0, 200, 100]]}', "{}")
+    assert st.collect_click_points() == {"tab 'a'": (1, 2)}

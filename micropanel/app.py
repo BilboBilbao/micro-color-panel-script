@@ -12,7 +12,7 @@ from micropanel.config import ConfigManager, load_profile
 from micropanel.device import open_panel
 from micropanel.engine import run_engine
 from micropanel.log import anonymize, emit, setup_logging
-from micropanel.platform.windows import acquire_single_instance, dpi_warning_text
+from micropanel.platform.windows import acquire_single_instance, dpi_warning_text, get_monitors
 
 TESTED_PYTHON = ((3, 11), (3, 14))      # oldest and newest Python version this program was tested with
 REQUIRED_PACKAGES = {"hid": "hidapi", "pynput": "pynput"}   # module name -> package name
@@ -142,7 +142,7 @@ def run_program(args):
          profile.name, len(profile.buttons), len(profile.rotary_channels),
          name=profile.name, buttons=len(profile.buttons), rotary_decoded=len(profile.rotary_channels))
 
-    config = ConfigManager(set(profile.buttons), profile.free_bindings)
+    config = ConfigManager(set(profile.buttons), profile.free_bindings, monitors=get_monitors)
     config.load(initial=True)
     emit(logging.INFO, "running", "Running. Press Ctrl+C to quit.")
     run_engine(profile, config, lambda: open_panel(profile), execute, trace=args.trace)

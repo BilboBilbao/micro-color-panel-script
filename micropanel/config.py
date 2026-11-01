@@ -74,6 +74,29 @@ def as_point(value):
     return None
 
 
+def parse_layout(value):
+    """Saved monitor layout (tabs.json key "_monitors") as a sorted list of (left, top, right, bottom),
+    or None if the value is not usable: not a non-empty list, a rectangle without four whole numbers (bool is
+    rejected), or a rectangle without area."""
+    if not isinstance(value, list) or not value:
+        return None
+    rectangles = []
+    for rect in value:
+        if not (isinstance(rect, list) and len(rect) == 4
+                and all(isinstance(v, int) and not isinstance(v, bool) for v in rect)):
+            return None
+        left, top, right, bottom = rect
+        if right <= left or bottom <= top:
+            return None
+        rectangles.append((left, top, right, bottom))
+    return sorted(rectangles)
+
+
+def current_layout(monitors):
+    """The monitors in the format of get_monitors() as sorted rectangles. Scale and primary flag are not compared."""
+    return sorted((m["left"], m["top"], m["right"], m["bottom"]) for m in monitors)
+
+
 def _tab_pos(tabs, name):
     point = as_point(tabs.get(name))
     if point is None:
@@ -141,12 +164,13 @@ def build_actions(bindings, button_names, tabs, free_bindings):
 # --------------------------------------------------------------------------
 class ConfigManager:
     def __init__(self, button_names, free_bindings, bindings_path=BINDINGS_PATH, tabs_path=TABS_PATH,
-                 interval=RELOAD_INTERVAL):
+                 interval=RELOAD_INTERVAL, monitors=None):
         self.button_names = button_names
         self.free_bindings = set(free_bindings)
         self.bindings_path = Path(bindings_path)
         self.tabs_path = Path(tabs_path)
         self.interval = interval
+        self.monitors = monitors   # function that returns the current monitor list; None = no layout check
         self.actions = {}          # the active bindings, replaced as a whole on every successful load
         self._applied = None       # file signature at the last load attempt
         self._pending = None       # changed signature that must be seen twice before it is loaded
@@ -169,7 +193,30 @@ class ConfigManager:
             raise ConfigError("bindings.json must contain a JSON object { ... }")
         if not isinstance(tabs, dict):
             raise ConfigError("tabs.json must contain a JSON object { ... }")
-        return build_actions(bindings, self.button_names, tabs, self.free_bindings)
+        result = build_actions(bindings, self.button_names, tabs, self.free_bindings)
+        self._check_layout(tabs)          # only reached when both files are valid; never raises
+        return result
+
+    def _check_layout(self, tabs):
+        """Warns if the monitors differ from the layout saved in tabs.json. Nothing is blocked."""
+        if self.monitors is None or "_monitors" not in tabs:
+            return
+        saved = parse_layout(tabs["_monitors"])
+        if saved is None:
+            emit(logging.WARNING, "config_warning", "Entry '_monitors' in tabs.json ignored: not a list of monitor rectangles",
+                 entry="_monitors", reason="bad_monitors")
+            return
+        try:
+            current = current_layout(self.monitors())
+        except Exception as e:  # noqa: BLE001
+            emit(logging.WARNING, "config_warning", "Monitor list not readable, layout not checked: %r", e,
+                 reason="monitor_list_failed")
+            return
+        if saved != current:
+            emit(logging.WARNING, "monitor_layout_changed",
+                 "Monitor layout differs from the one saved in tabs.json: click points may miss. "
+                 "Recalibrate with tools\\calibration.py",
+                 saved=len(saved), current=len(current))
 
     def load(self, initial=False):
         """Load both files. On any error the previous actions stay active (empty at the first start)."""

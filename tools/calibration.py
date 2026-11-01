@@ -6,6 +6,8 @@ Steps for each point:
   3. Do not move the mouse during the countdown
 
 Existing points in tabs.json are kept; points with the same name are overwritten.
+Every save also stores the current monitor layout under "_monitors". panel_main.py warns when the layout differs later.
+Names starting with an underscore are reserved for notes and cannot be used as point names.
 The Resolve window must be positioned the way you will use it later.
 The points are valid for this computer only (screens, scaling and window position). Calibrate on every computer.
 Points on a monitor left of or above the main monitor have negative numbers; that is correct.
@@ -14,6 +16,7 @@ Start (from the project folder): python tools\\calibration.py
 """
 import ctypes
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -35,21 +38,39 @@ if _awareness is not None and _awareness != 2:
 
 from pynput.mouse import Controller  # noqa: E402  (deliberately after the DPI call)
 
+sys.path.insert(0, str(BASE))     # this script lives in tools/, the micropanel package is one folder up
+from micropanel.config import current_layout, parse_layout  # noqa: E402  (standard library only)
+from micropanel.platform.windows import get_monitors  # noqa: E402
+
 mouse = Controller()
+
+try:
+    layout = current_layout(get_monitors())     # sorted rectangles; json.dumps writes them as lists
+except Exception as e:  # noqa: BLE001
+    layout = None
+    print("Note: the monitor layout could not be read and will not be saved:", repr(e))
 
 tabs = {}
 if TABS_FILE.exists():
     try:
         tabs = json.loads(TABS_FILE.read_text(encoding="utf-8"))
-        print("Existing points:", tabs)
+        print("Existing points:", {k: v for k, v in tabs.items() if not k.startswith("_")})
     except json.JSONDecodeError:
         print("WARNING: the existing tabs.json is not valid JSON and will be overwritten.")
+
+saved_layout = parse_layout(tabs.get("_monitors"))
+if layout is not None and saved_layout is not None and saved_layout != layout:
+    print("WARNING: the existing points were made for another monitor layout.\n"
+          "  Saving now marks ALL points as valid for the current layout, so recalibrate the old ones.")
 
 print("\nExample names: primaries, hdr")
 while True:
     name = input("\nName of the point (empty = finish): ").strip()
     if not name:
         break
+    if name.startswith("_"):
+        print("  Names starting with '_' are reserved for notes. Choose another name.")
+        continue
     if name in tabs:
         print(f"  '{name}' already exists ({tabs[name]}) and will be overwritten.")
     input(f"  Move the mouse over '{name}', then press Enter here ...")
@@ -58,6 +79,8 @@ while True:
         time.sleep(1)
     x, y = mouse.position
     tabs[name] = [int(x), int(y)]
+    if layout is not None:
+        tabs["_monitors"] = layout
     TABS_FILE.write_text(json.dumps(tabs, indent=2), encoding="utf-8")   # saved after every point
     print(f"\n  -> {name}: {tabs[name]} saved")
 

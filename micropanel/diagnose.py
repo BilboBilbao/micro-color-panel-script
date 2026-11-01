@@ -38,7 +38,8 @@ from pathlib import Path
 from micropanel import BASE, __version__
 from micropanel.actions import MOUSE_TOLERANCE, execute, to_pynput, toggle_state
 from micropanel.app import python_version_note
-from micropanel.config import BINDINGS_PATH, TABS_PATH, ConfigError, ConfigManager, as_point, load_profile, read_json
+from micropanel.config import (BINDINGS_PATH, TABS_PATH, ConfigError, ConfigManager, as_point, current_layout,
+                               load_profile, parse_layout, read_json)
 from micropanel.decoder import decode_held, decode_rotary, make_lookup, make_rotary_lookup, triggers_for_report
 from micropanel.device import bus_name, open_panel
 from micropanel.keys import NAMED_KEYS, parse_keys
@@ -224,6 +225,25 @@ def judge_click_points(monitors, points):
     return rows
 
 
+def judge_saved_layout(monitors, tabs):
+    """One row (status, text) for the monitor layout saved in tabs.json under "_monitors", or None if there is
+    nothing to check (tabs.json missing, empty or unreadable). Pure function, no system access."""
+    if not isinstance(tabs, dict) or not tabs:
+        return None
+    hint = "Calibrate again with: python tools\\calibration.py"
+    if "_monitors" not in tabs:
+        return ("SKIP", f"Saved monitor layout: tabs.json has none, so it cannot be checked. {hint}")
+    saved = parse_layout(tabs["_monitors"])
+    if saved is None:
+        return ("WARN", f"Saved monitor layout: '_monitors' in tabs.json is not a list of monitor rectangles "
+                        f"and is ignored. {hint}")
+    current = current_layout(monitors)
+    if saved != current:
+        return ("WARN", f"Saved monitor layout differs from the current one ({len(saved)} saved, {len(current)} now): "
+                        f"click points may miss. {hint}")
+    return ("PASS", f"Saved monitor layout in tabs.json matches the current {len(current)} monitor(s)")
+
+
 def step_screens(ctx):
     if not IS_WINDOWS:
         ctx.add("SKIP", "Screens and click points: Windows only")
@@ -246,6 +266,13 @@ def step_screens(ctx):
         ctx.add("INFO", "No click points defined (tabs.json is empty or missing)")
     for status, text in judge_click_points(monitors, points):
         ctx.add(status, text)
+    try:
+        tabs = read_json(TABS_PATH, required=False)
+    except ConfigError:
+        tabs = None
+    row = judge_saved_layout(monitors, tabs)
+    if row:
+        ctx.add(*row)
 
 
 def step_panel(ctx):
