@@ -155,10 +155,11 @@ def test_entry_warning_reasons(profile, caplog):
         "stop": {"type": "keys", "keys": "f9", "only_resolve": "yes"},            # not true/false
         "undo": {"type": "keys", "keys": "f9"},                                   # native function in Resolve
         "shift_up+copy": {"type": "keys", "keys": "f9"},                          # not in the free list
+        "shift_up+hue_knob_press": {"type": "click", "tab": ["hdr"]},             # a list is not a tab name
     }
     actions, _skipped = cfg.build_actions(bindings, set(profile.buttons), {}, set(profile.free_bindings))
     reasons = sorted(f["reason"] for f in fields(caplog, "config_warning"))
-    assert reasons == ["bad_only_resolve", "invalid_entry", "invalid_name", "not_free", "not_free"]
+    assert reasons == ["bad_only_resolve", "invalid_entry", "invalid_entry", "invalid_name", "not_free", "not_free"]
     assert set(actions) == {"undo", "shift_up+copy"}
 
 

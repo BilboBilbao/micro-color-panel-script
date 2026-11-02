@@ -98,7 +98,7 @@ def current_layout(monitors):
 
 
 def _tab_pos(tabs, name):
-    point = as_point(tabs.get(name))
+    point = as_point(tabs.get(name)) if isinstance(name, str) else None
     if point is None:
         raise ValueError(f"tab '{name}' missing or invalid in tabs.json")
     return point
