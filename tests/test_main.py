@@ -1,4 +1,5 @@
 """main(): start-up behavior and logging. The engine and the log setup are replaced, nothing here runs a loop."""
+import ast
 import logging
 import sys
 from pathlib import Path
@@ -235,3 +236,38 @@ def test_run_program_wires_the_monitor_list(monkeypatch, quiet_start):    # B23:
     monkeypatch.setattr(app, "run_engine", lambda *args, **kwargs: None)
     app.run_program(app.parse_args([]))
     assert seen.get("monitors") is app.get_monitors
+
+
+# --------------------------------------------------------------------------
+# Import guard (K2): a stranger without hidapi/pynput must see the friendly message, not a traceback
+# --------------------------------------------------------------------------
+def module_level_import_names(tree):
+    """Top-level package names imported while a module loads. Function bodies are skipped (they run later);
+    imports inside a module-level try/if and in class bodies count; relative imports are ignored."""
+    names = set()
+
+    def visit(node):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if isinstance(child, ast.Import):
+                names.update(alias.name.split(".")[0] for alias in child.names)
+            elif isinstance(child, ast.ImportFrom) and child.level == 0 and child.module:
+                names.add(child.module.split(".")[0])
+            visit(child)
+
+    visit(tree)
+    return names
+
+
+def test_no_module_imports_a_third_party_package_at_module_level():
+    # panel_main.py imports micropanel.app before its package check, and app.py imports the other modules at
+    # the top. This covers micropanel/ only: panel_main.py imports hid and pynput itself, on purpose, for that check.
+    allowed = set(sys.stdlib_module_names) | {"micropanel"}
+    found = {}
+    for path in sorted((BASE / "micropanel").rglob("*.py")):
+        names = module_level_import_names(ast.parse(path.read_text(encoding="utf-8")))
+        outside = sorted(name for name in names if name not in allowed)
+        if outside:
+            found[path.relative_to(BASE).as_posix()] = outside
+    assert found == {}
