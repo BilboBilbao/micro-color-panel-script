@@ -66,7 +66,7 @@ Every entry needs a field `type`: `keys`, `click` or `toggle`.
 `tabs.json` is a list of names and screen positions, for example `{ "primaries": [1200, 800], "hdr": [1260, 800] }`. The positions are valid for one computer, one monitor layout and one window position only. That is why there is no example file: create it with `tools/calibration.py`. The calibration also saves the monitor layout in `tabs.json` under `_monitors` (a note entry, do not edit it by hand). If the monitors differ when the file is loaded, the log shows a warning `Monitor layout differs ...` and the bindings stay active: calibrate again. Files without `_monitors` still load without a message.
 
 - `only_resolve` is `true` by default: the action only runs while Resolve is in the foreground.
-- Mouse clicks: the safety abort of the mouse library (moving the cursor into a screen corner) is switched off on purpose. Every click is one instant move and the cursor returns afterwards, and a calibrated point may lie in a corner.
+- Mouse clicks: every click is one instant move to the calibrated point, the click, and the cursor returns to where it was. There is no corner abort, so a calibrated point may lie in a corner. If the point lies outside every monitor, or the cursor does not land there, the click is skipped, the toggle does not advance and the log shows a warning.
 - The toggle only remembers its own clicks. If you switch by hand, it gets out of sync. If you change the list of tabs of a toggle, it starts again at the first entry.
 - Resolve still runs its own function for each button. Only use buttons that Resolve does not assign (section 7).
 
