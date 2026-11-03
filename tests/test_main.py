@@ -16,7 +16,24 @@ def quiet_start(monkeypatch):
     monkeypatch.setattr(app, "acquire_single_instance", lambda: True)
 
 
-def test_unexpected_error_is_logged_with_function_and_line(monkeypatch, caplog, quiet_start, as_windows):   # B2
+@pytest.fixture
+def own_config_files(monkeypatch, tmp_path):
+    """run_program must not read the developer's real bindings.json and tabs.json. Records the files every ConfigManager uses."""
+    (tmp_path / "bindings.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "tabs.json").write_text("{}", encoding="utf-8")
+    real, used = app.ConfigManager, []
+
+    def pinned(*args, **kwargs):
+        manager = real(*args, bindings_path=tmp_path / "bindings.json", tabs_path=tmp_path / "tabs.json", **kwargs)
+        used.append((manager.bindings_path, manager.tabs_path))
+        return manager
+
+    monkeypatch.setattr(app, "ConfigManager", pinned)
+    return used
+
+
+def test_unexpected_error_is_logged_with_function_and_line(monkeypatch, caplog, quiet_start, as_windows,
+                                                           own_config_files, tmp_path):   # B2
     caplog.set_level(logging.INFO)
 
     def boom(*args, **kwargs):
@@ -29,6 +46,7 @@ def test_unexpected_error_is_logged_with_function_and_line(monkeypatch, caplog, 
     found = [r.fields for r in caplog.records if getattr(r, "fields", {}).get("event") == "unexpected_error"]
     assert len(found) == 1
     assert found[0]["function"] == "boom" and isinstance(found[0]["line"], int)
+    assert own_config_files == [(tmp_path / "bindings.json", tmp_path / "tabs.json")]   # CONS-102: never the real files
 
 
 def test_non_windows_start_gives_a_clear_message(monkeypatch, capsys, quiet_start):                         # B8
