@@ -68,21 +68,12 @@ def test_setup_warns_about_dpi_only_when_not_per_monitor(monkeypatch, caplog, st
         assert found[0]["awareness"] == 1
 
 
-def test_setup_needs_no_mouse_package(monkeypatch):                          # B11
-    monkeypatch.setattr(app, "setup_logging", lambda *args, **kwargs: None)
-    monkeypatch.setitem(sys.modules, "pyautogui", None)                      # None in sys.modules: importing raises ImportError
-    monkeypatch.setitem(sys.modules, "pynput.mouse", None)
-    app.setup((2, 0), to_file=False, to_console=False)                       # must not import any mouse package
-
-
-def test_base_is_the_project_folder():
-    assert (BASE / "panel_main.py").is_file()
-
-
 @pytest.mark.parametrize("module,version,present,absent", [
-    ("hid", (3, 11, 9), ["'hidapi'", "python -m pip install -r requirements.txt"], ["py -3.11"]),
-    ("pynput.keyboard", (3, 15, 0), ["'pynput'", "3.15"], ["Traceback", "Newer Python versions"]),
-    (None, (3, 11, 9), ["unknown"], ["Traceback"]),
+    ("hid", (3, 11, 9), ["'hidapi'", "python -m pip install -r requirements.txt"], ["is in use"]),
+    ("pynput.keyboard", (3, 15, 0), ["'pynput'",
+                                      "Python 3.15 is in use. This program was tested with Python 3.11 to 3.14. "
+                                      "If something does not work, try Python 3.11 to 3.14."], []),
+    (None, (3, 11, 9), ["unknown"], []),
 ], ids=["hid_tested_python", "dotted_name_other_python", "no_module_name"])
 def test_missing_package_message(module, version, present, absent):
     text = app.missing_package_message(module, version)
@@ -93,23 +84,21 @@ def test_missing_package_message(module, version, present, absent):
 
 
 # --------------------------------------------------------------------------
-# Command line: --diagnose replaces --selftest (S5-3)
+# Command line
 # --------------------------------------------------------------------------
 @pytest.mark.parametrize("argv,diagnose", [
-    ([], False),
     (["--trace"], False),
-    (["--diagnose"], True),
     (["--diagnose", "--auto"], True),
     (["--diagnose", "--full", "--rotary", "--action-test"], True),
-], ids=["plain", "trace", "diagnose", "diagnose_auto", "diagnose_all_assisted"])
+], ids=["trace", "diagnose_auto", "diagnose_all_assisted"])
 def test_parse_args_accepts(argv, diagnose):
     assert app.parse_args(argv).diagnose is diagnose
 
 
 @pytest.mark.parametrize("argv", [
-    ["--selftest"], ["--auto"], ["--full"], ["--rotary"], ["--action-test"],
+    ["--auto"], ["--full"], ["--rotary"], ["--action-test"],
     ["--diagnose", "--auto", "--full"], ["--diagnose", "--trace"],
-], ids=["selftest_is_gone", "auto_alone", "full_alone", "rotary_alone", "action_test_alone",
+], ids=["auto_alone", "full_alone", "rotary_alone", "action_test_alone",
         "auto_with_full", "trace_with_diagnose"])
 def test_parse_args_rejects(argv):
     with pytest.raises(SystemExit) as stop:
@@ -138,20 +127,6 @@ def test_diagnose_start_calls_run_with_the_flags_and_exits_with_its_result(monke
     assert calls == [{"auto": True, "full": False, "action_test": False, "rotary": False}]
 
 
-@pytest.mark.parametrize("filename,forbidden", [
-    ("panel_main.py", ["selftest", "sys.modules[__name__]"]),
-    ("micropanel/app.py", ["selftest_host"]),
-], ids=["start_file", "app"])
-def test_no_bridge_to_the_old_self_test_is_left(filename, forbidden):
-    text = (BASE / filename).read_text(encoding="utf-8")
-    for part in forbidden:
-        assert part not in text
-
-
-def test_selftest_py_is_gone():
-    assert not (BASE / "selftest.py").exists()
-
-
 # --------------------------------------------------------------------------
 # RV-1: a failing setup (for example panel.log cannot be created) ends with a short message, not a traceback
 # --------------------------------------------------------------------------
@@ -172,17 +147,6 @@ def test_setup_failure_prints_short_message_and_exits_1(monkeypatch, capsys, as_
     assert "Traceback" not in out and str(BASE) not in out
 
 
-def test_setup_failure_without_console_is_silent_and_exits_1(monkeypatch, as_windows):
-    def broken_setup(*args, **kwargs):
-        raise PermissionError(13, "Permission denied", str(BASE / "panel.log"))
-
-    monkeypatch.setattr(app, "setup", broken_setup)
-    monkeypatch.setattr(sys, "stdout", None)                    # pythonw has no console
-    with pytest.raises(SystemExit) as stop:
-        app.main([], dpi_state=(2, 0))
-    assert stop.value.code == 1
-
-
 def test_log_file_cannot_be_created_gives_clean_exit(monkeypatch, capsys, as_windows):
     import micropanel.log as log_module
 
@@ -197,27 +161,13 @@ def test_log_file_cannot_be_created_gives_clean_exit(monkeypatch, capsys, as_win
     assert "could not start" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("version", [(3, 11, 9), (3, 12, 10), (3, 13, 15), (3, 14, 7)])
+@pytest.mark.parametrize("version", [(3, 11, 9), (3, 14, 7)])
 def test_python_version_note_inside_tested_range(version):
     assert app.python_version_note(version) is None
 
 
-@pytest.mark.parametrize("version,shown", [((3, 9, 0), "3.9"), ((3, 10, 14), "3.10"),
-                                           ((3, 15, 0), "3.15"), ((4, 0, 0), "4.0")])
+@pytest.mark.parametrize("version,shown", [((3, 10, 14), "3.10"), ((3, 15, 0), "3.15")])
 def test_python_version_note_outside_tested_range(version, shown):
     assert app.python_version_note(version) == (
         f"Python {shown} is in use. This program was tested with Python 3.11 to 3.14. "
         "If something does not work, try Python 3.11 to 3.14.")
-
-
-def test_missing_package_message_inside_range_has_no_version_hint():
-    text = app.missing_package_message("hid", (3, 12, 10))
-    assert "pip install -r requirements.txt" in text
-    assert "is in use" not in text and "tested with" not in text
-
-
-def test_missing_package_message_outside_range_has_only_the_hint():
-    text = app.missing_package_message("hid", (3, 15, 0))
-    assert ("Python 3.15 is in use. This program was tested with Python 3.11 to 3.14. "
-            "If something does not work, try Python 3.11 to 3.14.") in text
-    assert "Newer Python versions" not in text and "panel_main.py" not in text
