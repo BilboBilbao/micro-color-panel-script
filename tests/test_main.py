@@ -8,6 +8,7 @@ import pytest
 import micropanel.app as app
 from micropanel import BASE
 from micropanel.log import AnonymizeFilter, FileFormatter, LOG_FORMAT
+from helpers import events, messages
 
 
 @pytest.fixture
@@ -189,3 +190,48 @@ def test_python_version_note_outside_tested_range(version, shown):
     assert app.python_version_note(version) == (
         f"Python {shown} is in use. This program was tested with Python 3.11 to 3.14. "
         "If something does not work, try Python 3.11 to 3.14.")
+
+
+# --------------------------------------------------------------------------
+# run_program: the exit paths and the wiring of the monitor check (B26-F6)
+# --------------------------------------------------------------------------
+def must_not_run(*args, **kwargs):
+    raise AssertionError("this step must not be reached")
+
+
+def test_instance_blocked_exits_1(monkeypatch, caplog, quiet_start):
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(app, "acquire_single_instance", lambda: False)
+    monkeypatch.setattr(app, "load_profile", must_not_run)                 # a second instance stops before anything else
+    monkeypatch.setattr(app, "run_engine", must_not_run)
+    with pytest.raises(SystemExit) as stop:
+        app.run_program(app.parse_args([]))
+    assert stop.value.code == 1
+    assert "instance_blocked" in events(caplog)
+
+
+def test_profile_error_exits_1(monkeypatch, caplog, quiet_start):
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(app, "load_profile", lambda: (None, ["bad profile"]))
+    monkeypatch.setattr(app, "ConfigManager", must_not_run)
+    monkeypatch.setattr(app, "run_engine", must_not_run)
+    with pytest.raises(SystemExit) as stop:
+        app.run_program(app.parse_args([]))
+    assert stop.value.code == 1
+    assert messages(caplog, "profile_error") == ["Device profile: bad profile"]
+
+
+def test_run_program_wires_the_monitor_list(monkeypatch, quiet_start):    # B23: without it the layout warning never appears
+    seen = {}
+
+    class SpyConfig:
+        def __init__(self, *args, **kwargs):
+            seen.update(kwargs)
+
+        def load(self, initial=False):
+            pass
+
+    monkeypatch.setattr(app, "ConfigManager", SpyConfig)
+    monkeypatch.setattr(app, "run_engine", lambda *args, **kwargs: None)
+    app.run_program(app.parse_args([]))
+    assert seen.get("monitors") is app.get_monitors
