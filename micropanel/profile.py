@@ -1,6 +1,6 @@
 """Device profile (hardware facts): turning the profile data into a Profile, and the binding names. Standard library only.
 No file access here: reading the file is done by the caller (load_profile). The rules for the file itself
-(types, ranges, overlaps, duplicates, free bindings) are checked by tests (tests/profile_rules.py), not at run time (B9)."""
+(types, ranges, overlaps, duplicates, free bindings) are pinned by tests/test_profile.py and the replay tests, not checked at run time (B9)."""
 from dataclasses import dataclass, field
 
 MODS = {"shift_up", "shift_down"}

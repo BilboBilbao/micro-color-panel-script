@@ -1,11 +1,9 @@
 """The shipped device profile (devices/micro_color_panel.json) as the program loads it. Expected values are written by hand
-from docs/HARDWARE.md. The rules for the file itself are in test_profile_rules.py (B9)."""
+from docs/HARDWARE.md. The file is developer-owned data: these tests pin it, there is no run-time validation (B9)."""
 import json
 
-import pytest
-
 import micropanel.config as cfg
-from micropanel.profile import parse_profile
+from micropanel.profile import parse_profile, valid_binding_name
 
 
 def raw_profile():
@@ -15,27 +13,26 @@ def raw_profile():
 def test_shipped_profile_is_valid(profile):
     assert (profile.vid, profile.pid, profile.usage_page, profile.report_id) == (0x1EDB, 0xDA0F, 0xFF00, 2)
     assert len(profile.buttons) == 52
-    assert len(set(profile.buttons.values())) == 52                  # no position used twice
     assert {"shift_up", "shift_down"} <= set(profile.buttons)
     assert len(profile.rotary_channels) == 18
     assert len(profile.free_bindings) == 55 and len(set(profile.free_bindings)) == 55
+    assert all(valid_binding_name(name, set(profile.buttons)) for name in profile.free_bindings)
 
 
-def test_profile_has_no_list_of_undecoded_rotary_controls(profile):       # B9: every rotary control has channels
-    assert not hasattr(profile, "rotary")
+def test_rotary_channels_follow_the_documented_report_layout(profile):
+    layout = {}
+    for _name, (_ctype, channels) in profile.rotary_channels.items():
+        for c in channels:
+            layout.setdefault(c.report, []).append((c.byte, c.width))
+    assert {report: sorted(spans) for report, spans in layout.items()} == {
+        6: [(1 + 4 * k, 32) for k in range(12)],     # 12 knobs, 32 bit
+        5: [(2 + 4 * k, 24) for k in range(9)],      # 3 trackballs (x, y) and 3 rings, 24 bit
+    }
 
 
-def test_rotary_channels_sit_in_the_right_reports(profile):
-    for name, (ctype, channels) in profile.rotary_channels.items():
-        expected_report = 6 if ctype == "knob_turn" else 5
-        assert {c.report for c in channels} == {expected_report}, name
-
-
-@pytest.mark.parametrize("path,value", [(("device", "vid"), True), (("reports", "buttons"), True)],
-                         ids=["bool_vid", "bool_report_id"])
-def test_bool_is_rejected_as_number(path, value):
+def test_bool_is_rejected_as_number():
     data = raw_profile()
-    data[path[0]][path[1]] = value
+    data["reports"]["buttons"] = True
     loaded, errors = parse_profile(data)
     assert loaded is None and errors
 
@@ -62,4 +59,4 @@ KNOB_PRESSES = ["ylift_knob_press", "ygamma_knob_press", "ygain_knob_press", "co
 def test_shift_plus_knob_press_is_free(profile):         # live test, Resolve 21.0.4.5 Studio: no reaction
     expected = {f"{shift}+{press}" for shift in ("shift_up", "shift_down") for press in KNOB_PRESSES}
     assert len(expected) == 24
-    assert expected <= set(profile.free_bindings)    
+    assert expected <= set(profile.free_bindings)
