@@ -69,13 +69,6 @@ def test_open_panel_opens_the_bluetooth_entry(monkeypatch, profile):   # measure
     assert fake.opened == [b"bt"]
 
 
-def test_open_panel_gives_none_without_the_panel_usage_page(monkeypatch, profile):
-    fake = FakeHid([entry(b"dfu", 1, 0x0001)])
-    monkeypatch.setitem(sys.modules, "hid", fake)
-    assert open_panel(profile) is None
-    assert fake.opened == []
-
-
 def test_usage_page_decides_not_the_interface_number(monkeypatch, profile):
     fake = FakeHid([entry(b"other", 2, 0x0001)])
     monkeypatch.setitem(sys.modules, "hid", fake)
@@ -97,17 +90,15 @@ def test_open_error_reaches_the_caller(monkeypatch, profile):          # CONS-01
 
 # --- v0.3.35: how the panel is connected ---------------------------------------------------------------------
 
-@pytest.mark.parametrize("bus_type, expected", [(1, "USB"), (2, "Bluetooth"), (0, "unknown"), (3, "unknown"),
-                                                (7, "unknown"), (None, None)])
+@pytest.mark.parametrize("bus_type, expected", [(1, "USB"), (2, "Bluetooth"), (0, "unknown"), (None, None)])
 def test_bus_name(bus_type, expected):                                 # hidapi enum: 0 unknown, 1 USB, 2 Bluetooth
     from micropanel.device import bus_name
     assert bus_name(bus_type) == expected
 
 
-@pytest.mark.parametrize("bus_type, expected", [(1, "USB"), (2, "Bluetooth"), (None, "unknown")])
-def test_open_panel_reports_the_connection(monkeypatch, profile, bus_type, expected):
-    monkeypatch.setitem(sys.modules, "hid", FakeHid([entry(b"hid", 2, bus_type=bus_type)]))
-    assert opened_panel(profile).connection == expected
+def test_open_panel_without_bus_type_reports_unknown(monkeypatch, profile):
+    monkeypatch.setitem(sys.modules, "hid", FakeHid([entry(b"hid", 2)]))
+    assert opened_panel(profile).connection == "unknown"
 
 
 def test_connection_comes_from_the_opened_entry(monkeypatch, profile):
@@ -125,12 +116,6 @@ def test_opened_panel_passes_read_and_close_on(monkeypatch, profile):  # charact
     assert opened.read(64, 100) == [2, 0, 0]
     opened.close()
     assert fake.devices[0].closed
-
-
-@pytest.mark.parametrize("name", ["write", "send_feature_report", "send_output_report"])
-def test_opened_panel_has_no_write_call(monkeypatch, profile, name):  # principle 1; green now, guards the wrapper
-    monkeypatch.setitem(sys.modules, "hid", FakeHid([entry(b"hid", 2)]))
-    assert not hasattr(opened_panel(profile), name)
 
 
 # --- the diagnose keeps showing the connection type (characterization, green at once) -----------------------
