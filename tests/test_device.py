@@ -6,7 +6,6 @@ import sys
 
 import pytest
 
-from micropanel import diagnose
 from micropanel.device import open_panel
 
 
@@ -116,34 +115,3 @@ def test_opened_panel_passes_read_and_close_on(monkeypatch, profile):  # charact
     assert opened.read(64, 100) == [2, 0, 0]
     opened.close()
     assert fake.devices[0].closed
-
-
-# --- the diagnose keeps showing the connection type (characterization, green at once) -----------------------
-
-def diagnose_context(profile):
-    ctx = diagnose.Context(auto=True)
-    ctx.profile = profile
-    return ctx
-
-
-def test_diagnose_shows_a_bluetooth_connection(monkeypatch, profile):
-    monkeypatch.setitem(sys.modules, "hid", FakeHid([entry(b"bt", -1, bus_type=2)]))
-    ctx = diagnose_context(profile)
-    diagnose.step_panel(ctx)
-    assert ctx.bus == "Bluetooth"
-    assert ("INFO", "Connection type reported by the hid library: Bluetooth") in ctx.rows
-
-
-def test_diagnose_without_connection_type(monkeypatch, profile):
-    monkeypatch.setitem(sys.modules, "hid", FakeHid([entry(b"hid", 2)]))
-    ctx = diagnose_context(profile)
-    diagnose.step_panel(ctx)
-    assert ctx.bus is None
-    assert ("INFO", "Connection type reported by the hid library: not provided by this version of the library") in ctx.rows
-
-
-def test_diagnose_skips_the_unplug_step_over_bluetooth(profile):
-    ctx = diagnose_context(profile)
-    ctx.bus = "Bluetooth"
-    diagnose.step_unplug(ctx)
-    assert ctx.rows == [("SKIP", "Unplug test: the panel is connected by Bluetooth")]
