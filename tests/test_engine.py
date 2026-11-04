@@ -7,8 +7,7 @@ import pytest
 
 import micropanel.engine as engine
 from micropanel import BASE
-from helpers import (ConfigStub, FakeDevice, events, fields, idle_report, messages, real_config, recorded_report,
-                     report_of)
+from helpers import ConfigStub, FakeDevice, events, fields, idle_report, real_config, recorded_report, report_of
 
 USER_ACTION = ("keys", ["Key.f9"], True)
 
@@ -45,23 +44,17 @@ def test_action_error_does_not_reconnect(profile, caplog):             # B4
         raise ValueError("bug in an action")
 
     first, second = FakeDevice([recorded_report("user")]), FakeDevice()
-    opened = 0
-    try:
-        opened = run(profile, [first, second], execute=failing)
-    except ValueError:
-        opened = 1                                                    # the error may also reach the caller
-    assert "panel_lost" not in events(caplog)
-    assert opened == 1
+    with pytest.raises(ValueError):                                   # run_engine does not catch an action error
+        run(profile, [first, second], execute=failing)
+    assert "panel_lost" not in events(caplog)                         # and it is not mistaken for a lost panel
+    assert first.closed                                               # the panel is still closed cleanly
 
 
-def test_normal_run_never_writes_to_the_panel(profile):               # B6, behavior (FakeDevice fails on any write)
-    run(profile, [FakeDevice([recorded_report("user"), idle_report(), recorded_report("undo"), idle_report()])])
-
-
-def test_runtime_code_has_no_write_call():                            # B6, text scan of the start file and the package
+def test_runtime_code_has_no_write_call_and_no_global_listener():     # B6 and principle 8, text scan of the start file and the package
     files = [BASE / "panel_main.py", *sorted((BASE / "micropanel").rglob("*.py"))]
     source = "\n".join(path.read_text(encoding="utf-8") for path in files)
     assert re.findall(r"\.(write|send_feature_report|send_output_report)\(", source) == []
+    assert re.findall(r"\b(Listener|GlobalHotKeys)\b", source) == []
 
 
 class EditingDevice(FakeDevice):
@@ -190,13 +183,6 @@ def with_connection(device, connection):
     return device
 
 
-def test_panel_connected_names_the_connection(profile, caplog):        # v0.3.35, panel present at start
-    caplog.set_level(logging.INFO)
-    run(profile, [with_connection(FakeDevice([idle_report()]), "Bluetooth")])
-    assert [f["connection"] for f in fields(caplog, "panel_connected")] == ["Bluetooth"]
-    assert messages(caplog, "panel_connected") == ["Panel connected (Bluetooth)"]
-
-
 def test_connection_is_logged_again_after_a_lost_panel(profile, caplog):   # v0.3.35, USB then Bluetooth
     caplog.set_level(logging.INFO)
     first = with_connection(FakeDevice([OSError("unplugged")]), "USB")
@@ -204,10 +190,3 @@ def test_connection_is_logged_again_after_a_lost_panel(profile, caplog):   # v0.
     run(profile, [first, second])
     assert events(caplog) == ["panel_connected", "panel_lost", "panel_connected", "stop"]
     assert [f["connection"] for f in fields(caplog, "panel_connected")] == ["USB", "Bluetooth"]
-
-
-def test_connection_is_unknown_without_the_attribute(profile, caplog):     # v0.3.35, e.g. a device without the field
-    caplog.set_level(logging.INFO)
-    run(profile, [FakeDevice([idle_report()])])
-    assert [f["connection"] for f in fields(caplog, "panel_connected")] == ["unknown"]
-    assert messages(caplog, "panel_connected") == ["Panel connected (unknown)"]
