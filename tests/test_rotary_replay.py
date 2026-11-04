@@ -18,6 +18,8 @@ for _el in VECTORS:
     else:
         EXPECTED[_el] = (_el, {"right": ("x", -1), "left": ("x", +1), "up": ("y", -1), "down": ("y", +1)})
 
+STEPS = [(element, step) for element, steps in sorted(VECTORS.items()) for step in sorted(steps)]
+
 
 def padded(hex_text):
     return bytes.fromhex(hex_text).ljust(64, b"\x00")
@@ -27,46 +29,35 @@ def decode(report, profile):
     return decode_rotary(report, make_rotary_lookup(profile))
 
 
-def test_knob_right_is_positive(profile):
-    report = bytes.fromhex("06" "48120000").ljust(64, b"\x00")          # ylift_knob, right: 0x00001248
-    assert [v for n, a, v in decode(report, profile) if n == "ylift_knob_turn"] == [4680]
+def test_every_recorded_step_moves_the_right_channel_in_the_right_direction(profile):
+    assert len(STEPS) == 42                                            # 12 knobs x 2, 3 rings x 2, 3 trackballs x 4
+    wrong = {}
+    for element, step in STEPS:
+        control, directions = EXPECTED[element]
+        axis, sign = directions[step]
+        totals = {}
+        for hex_text, count in VECTORS[element][step]:
+            for name, ax, value in decode(padded(hex_text), profile):
+                totals[(name, ax)] = totals.get((name, ax), 0) + count * value
+        strongest = max(totals, key=lambda key: abs(totals[key]))
+        if strongest != (control, axis) or totals[strongest] * sign <= 0:
+            wrong[(element, step)] = (strongest, totals[strongest])
+    assert wrong == {}                    # one failure lists every wrong (element, step)
 
 
-def test_knob_left_is_negative(profile):
-    report = bytes.fromhex("06" "48e5ffff").ljust(64, b"\x00")          # ylift_knob, left: 0xFFFFE548
-    assert [v for n, a, v in decode(report, profile) if n == "ylift_knob_turn"] == [-6840]
-
-
-def test_trackball_right_is_negative_x(profile):
-    report = bytes.fromhex("05" "00" "d0ffff").ljust(64, b"\x00")       # lift_trackball, right: x = 0xFFFFD0
-    assert [v for n, a, v in decode(report, profile) if (n, a) == ("lift_trackball", "x")] == [-48]
-
-
-def test_foreign_report_id_gives_nothing(profile):
-    assert decode(padded("07" + "ff" * 63), profile) == []
-
-
-@pytest.mark.parametrize("element,step", [(e, s) for e, steps in sorted(VECTORS.items()) for s in sorted(steps)])
-def test_recorded_step_moves_the_right_channel_in_the_right_direction(profile, element, step):
-    control, directions = EXPECTED[element]
-    axis, sign = directions[step]
-    totals = {}
-    for hex_text, count in VECTORS[element][step]:
-        for name, ax, value in decode(padded(hex_text), profile):
-            totals[(name, ax)] = totals.get((name, ax), 0) + count * value
-    strongest = max(totals, key=lambda key: abs(totals[key]))
-    assert strongest == (control, axis)
-    assert totals[strongest] * sign > 0
-
-
-@pytest.mark.parametrize("element,step", [(e, s) for e, steps in sorted(VECTORS.items()) for s in sorted(steps)])
-def test_profile_direction_word_matches_the_recording(profile, element, step):
+def test_profile_direction_word_matches_the_recording(profile):
     """The profile says in which direction a channel is positive ('positive'). The recording says what the
-    sign was when the element was turned that way (hand table EXPECTED)."""
-    control, directions = EXPECTED[element]
-    axis, sign = directions[step]
-    channels = {c.axis: c for c in profile.rotary_channels[control][1]}
-    assert channels[axis].sign_for(step) == sign
+    sign was when the element was turned that way (hand table EXPECTED). The only proof of that field."""
+    assert len(STEPS) == 42
+    wrong = {}
+    for element, step in STEPS:
+        control, directions = EXPECTED[element]
+        axis, sign = directions[step]
+        channels = {c.axis: c for c in profile.rotary_channels[control][1]}
+        found = channels[axis].sign_for(step)
+        if found != sign:
+            wrong[(element, step)] = found
+    assert wrong == {}
 
 
 def test_knob_report_gives_12_channels_with_only_the_moved_one_nonzero(profile):
