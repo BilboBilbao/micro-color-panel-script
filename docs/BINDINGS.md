@@ -73,13 +73,14 @@ Every entry needs a field `type`: `keys`, `click` or `toggle`.
 ## 6. Key names
 
 - Join keys with `+`: `ctrl+alt+shift+f9`. Recommended: `ctrl+alt+shift` plus an F key, these are rarely assigned.
-- Modifiers: ctrl, alt, shift, alt_gr. Avoid the Windows key (win) if possible.
+- Modifiers: ctrl, alt, shift, alt_gr. Avoid the Windows key (`win`, also written `cmd`) if possible.
 - Letters, digits, symbols: a single character, e.g. `k`, `5`, `#`.
 - Special keys: enter, tab, esc, space, backspace, delete, home, end, page_up, page_down, insert, up, down, left, right, caps_lock, num_lock, scroll_lock, pause, print_screen, menu, f1 to f20.
 - Not every name exists on every system. `python panel_main.py --diagnose --auto` lists the names your system does not know ("Documented key names missing ..."). An entry that uses such a name stays active and logs an error each time the button is pressed.
 - Special characters as words: plus, minus, comma, period, slash, backslash, semicolon, equals, quote, backtick, bracket_left, bracket_right.
 - Numpad: num0 to num9, num_plus, num_minus, num_multiply, num_divide, num_decimal.
 - Media: media_play_pause, media_next, media_previous, media_volume_up, media_volume_down, media_mute.
+- Alternative spellings (they give the same key): return = enter, del = delete, pageup = page_up, pagedown = page_down, ins = insert, altgr = alt_gr, capslock = caps_lock, numlock = num_lock, scrolllock = scroll_lock, printscreen = print_screen, dot = period.
 - On keyboard layouts with AltGr (e.g. German), combinations like `ctrl+alt+<character>` may misbehave. F keys are safer.
 
 ## 7. Free combinations (no native function)
