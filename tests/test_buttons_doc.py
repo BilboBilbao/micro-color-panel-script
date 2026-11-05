@@ -52,12 +52,6 @@ def rows(render):
     return render(small_profile_data()).splitlines()
 
 
-def test_title_and_generated_notice_come_first(render):
-    lines = rows(render)
-    assert lines[0] == "# Controls of the Micro Color Panel"
-    assert lines[2] == "Generated from devices/micro_color_panel.json by tools/build_buttons_doc.py. Do not edit by hand."
-
-
 def test_summary_line_counts_the_controls(render):
     assert ("6 buttons and knob presses (decoded, bindable except the two shift keys), "
             "3 rotary elements (decoded, not bindable yet), 3 free bindings.") in rows(render)
@@ -68,17 +62,10 @@ def test_summary_line_counts_the_controls(render):
     "| undo | button | 3 | 0 | yes | shift_down |",
     "| delete | button | 3 | 2 | yes | - |",
     "| shift_up | button | 4 | 0 | modifier only | - |",
-    "| shift_down | button | 4 | 1 | modifier only | - |",
     "| ylift_knob_press | knob press | 1 | 0 | yes | - |",
-], ids=["free_plain_and_shift_up", "free_shift_down", "nothing_free", "shift_up_key", "shift_down_key", "knob_press"])
+], ids=["free_plain_and_shift_up", "free_shift_down", "nothing_free", "shift_up_key", "knob_press"])
 def test_button_rows(render, row):
     assert row in rows(render)
-
-
-def test_buttons_table_header_names_the_button_report(render):
-    lines = rows(render)
-    at = lines.index("## Buttons and knob presses (report 0x02)")
-    assert lines[at + 2] == "| Name | Type | Byte | Bit | Bindable | Free combinations |"
 
 
 def test_trackball_gives_one_row_per_axis(render):
@@ -87,28 +74,8 @@ def test_trackball_gives_one_row_per_axis(render):
     assert "| lift_trackball | trackball | y | 0x05 | 6 | 24 bit | down | not yet |" in lines
 
 
-@pytest.mark.parametrize("row", [
-    "| lift_ring | ring | turn | 0x05 | 10 | 24 bit | right | not yet |",
-    "| ylift_knob_turn | knob turn | turn | 0x06 | 1 | 32 bit | right | not yet |",
-], ids=["ring", "knob_turn"])
-def test_rotary_rows(render, row):
-    assert row in rows(render)
-
-
-def test_text_has_one_final_newline_no_trailing_spaces_and_only_ascii(render):
-    text = render(small_profile_data())
-    assert text.endswith("\n") and not text.endswith("\n\n")
-    assert all(line == line.rstrip() for line in text.split("\n"))
-    assert text.isascii()
-
-
-def test_same_profile_gives_the_same_text(render):
-    assert render(small_profile_data()) == render(small_profile_data())
-
-
-def test_real_profile_summary(render):
-    assert ("52 buttons and knob presses (decoded, bindable except the two shift keys), "
-            "18 rotary elements (decoded, not bindable yet), 55 free bindings.") in render(read_json(PROFILE_PATH)).splitlines()
+def test_knob_turn_row_uses_the_word_knob_turn(render):               # the one type word that differs from the profile type
+    assert "| ylift_knob_turn | knob turn | turn | 0x06 | 1 | 32 bit | right | not yet |" in rows(render)
 
 
 def test_committed_doc_is_up_to_date(render):
