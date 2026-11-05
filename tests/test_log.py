@@ -13,14 +13,6 @@ def test_file_formatter_appends_fields():
     record.fields = {"event": "x", "name": "a b", "ok": True}
     text = FileFormatter(LOG_FORMAT, LOG_DATE_FORMAT).format(record)
     assert text.endswith('hello world [event=x name="a b" ok=true]')
-
-
-def test_anonymize_replaces_project_and_home_folder():
-    home = Path.home()
-    if len(str(home)) < 4:
-        pytest.skip("home folder too short to check")
-    assert anonymize(f"{BASE}/bindings.json") == "<project>/bindings.json"
-    assert anonymize(f"{home}/x") == "<home>/x"
     
 
 @pytest.mark.parametrize("label, folder", [("<project>", BASE), ("<home>", Path.home())], ids=["project", "home"])

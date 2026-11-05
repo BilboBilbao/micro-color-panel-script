@@ -68,12 +68,16 @@ def test_log_output_hides_home_and_project_folder():                            
     home = Path.home()
     if len(str(home)) < 4:
         pytest.skip("home folder too short to check")
-    record = logging.LogRecord("panel", logging.INFO, __file__, 1, "file %s and %s", (home / "x.json", BASE / "panel.log"), None)
-    record.fields = {"event": "test", "path": str(home / "secret" / "y.json")}
-    assert AnonymizeFilter().filter(record)
-    text = FileFormatter(LOG_FORMAT).format(record)
-    for hidden in (str(home), home.as_posix(), str(BASE), BASE.as_posix()):
-        assert hidden.lower() not in text.lower()
+    records = [
+        logging.LogRecord("panel", logging.INFO, __file__, 1, "file %s and %s", (home / "x.json", BASE / "panel.log"), None),
+        logging.LogRecord("panel", logging.INFO, __file__, 2, f"file {home / 'z.json'} and {BASE / 'panel.log'}", (), None),   # paths written straight into the text
+    ]
+    for record in records:
+        record.fields = {"event": "test", "path": str(home / "secret" / "y.json")}
+        assert AnonymizeFilter().filter(record)
+        text = FileFormatter(LOG_FORMAT).format(record)
+        for hidden in (str(home), home.as_posix(), str(BASE), BASE.as_posix()):
+            assert hidden.lower() not in text.lower()
 
 
 @pytest.mark.parametrize("state,warnings", [((1, -2147024891), 1), ((2, 0), 0)],
