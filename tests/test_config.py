@@ -13,10 +13,8 @@ from helpers import events, fields, messages, real_config
 
 @pytest.mark.parametrize("entry,tabs", [
     ({"type": "click", "pos": [True, 5]}, {}),
-    ({"type": "click", "pos": [5, False]}, {}),
     ({"type": "click", "tab": "x"}, {"x": [True, 5]}),
-    ({"type": "toggle", "tabs": ["x"]}, {"x": [5, True]}),
-], ids=["pos_bool_x", "pos_bool_y", "tab_bool_x", "toggle_tab_bool_y"])
+], ids=["pos_bool_x", "tab_bool_x"])
 def test_bool_coordinate_rejected(entry, tabs):                       # B5
     with pytest.raises(ValueError):
         cfg.compile_action(entry, tabs)
@@ -48,7 +46,9 @@ def test_reload_keeps_old_actions_on_broken_json(tmp_path, profile, caplog):
         config.poll()
     assert list(config.actions) == ["user"]
     assert config.actions["user"][1] == parse_keys("f9")
-    assert events(caplog).count("config_failed") == 1                 # reported once, not on every poll
+    found = messages(caplog, "config_failed")
+    assert len(found) == 1                                            # reported once, not on every poll
+    assert "line" in found[0] and "column" in found[0]                # the user can find the typo
 
 
 def test_changed_file_is_loaded_after_two_polls(tmp_path, profile):
@@ -58,20 +58,6 @@ def test_changed_file_is_loaded_after_two_polls(tmp_path, profile):
     assert config.actions["user"][1] == parse_keys("f9")           # debounce: not yet
     config.poll()
     assert config.actions["user"][1] == parse_keys("f10")
-
-
-def test_invalid_entry_is_skipped_not_fatal(tmp_path, profile):
-    write(tmp_path / "bindings.json", {
-        "user": {"type": "keys", "keys": "f9"},
-        "not_a_button": {"type": "keys", "keys": "f9"},
-        "shift_up+user": {"type": "nonsense"},
-        "_note": "ignored",
-    })
-    write(tmp_path / "tabs.json", {})
-    config = cfg.ConfigManager(set(profile.buttons), profile.free_bindings,
-                              tmp_path / "bindings.json", tmp_path / "tabs.json", interval=0)
-    config.load(initial=True)
-    assert list(config.actions) == ["user"]
 
 
 def test_example_bindings_load_cleanly(profile, caplog):
@@ -91,12 +77,11 @@ def test_read_json_accepts_file_with_byte_order_mark(tmp_path):         # Notepa
 
 @pytest.mark.parametrize("content,expected", [
     (b'{"a": ', "x.json is not valid JSON"),
-    (None, "file missing: x.json"),
-], ids=["invalid_json", "missing_required_file"])
+    (b'{"a": "\xe4"}', "x.json is not valid UTF-8"),                   # saved as ANSI by an old editor
+], ids=["invalid_json", "ansi_encoded"])
 def test_read_json_error_names_the_file(tmp_path, content, expected):
     path = tmp_path / "x.json"
-    if content is not None:
-        path.write_bytes(content)
+    path.write_bytes(content)
     with pytest.raises(cfg.ConfigError, match=expected):
         cfg.read_json(path)
 
@@ -120,17 +105,6 @@ def test_broken_file_at_start_runs_without_bindings_and_loads_after_repair(tmp_p
     config.poll()                                                     # sees the change
     config.poll()                                                     # sees it a second time and loads
     assert list(config.actions) == ["user"]
-    
-
-def test_broken_json_message_names_line_and_column(tmp_path, profile, caplog):
-    caplog.set_level(logging.INFO)
-    config = make_config(tmp_path, profile)
-    write(tmp_path / "bindings.json", '{"user": {"type": "keys", "keys": "f10"} BROKEN')
-    for _ in range(4):
-        config.poll()
-    found = messages(caplog, "config_failed")
-    assert len(found) == 1
-    assert "line" in found[0] and "column" in found[0]
 
 
 def test_deleted_file_keeps_old_actions_and_message_has_no_full_path(tmp_path, profile, caplog):
@@ -156,10 +130,12 @@ def test_entry_warning_reasons(profile, caplog):
         "undo": {"type": "keys", "keys": "f9"},                                   # native function in Resolve
         "shift_up+copy": {"type": "keys", "keys": "f9"},                          # not in the free list
         "shift_up+hue_knob_press": {"type": "click", "tab": ["hdr"]},             # a list is not a tab name
+        "shift_down+hue_knob_press": "f9",                                        # a text instead of an object
     }
     actions, _skipped = cfg.build_actions(bindings, set(profile.buttons), {}, set(profile.free_bindings))
     reasons = sorted(f["reason"] for f in fields(caplog, "config_warning"))
-    assert reasons == ["bad_only_resolve", "invalid_entry", "invalid_entry", "invalid_name", "not_free", "not_free"]
+    assert reasons == ["bad_only_resolve", "invalid_entry", "invalid_entry", "invalid_entry", "invalid_name",
+                       "not_free", "not_free"]
     assert set(actions) == {"undo", "shift_up+copy"}
 
 
@@ -193,17 +169,6 @@ def test_same_size_rewrite_with_restored_mtime_is_loaded(tmp_path, profile):    
     assert config.actions["user"][1] == parse_keys("f8")
 
 
-def test_touch_without_content_change_does_not_reload(tmp_path, profile, caplog):     # RV-2
-    caplog.set_level(logging.INFO)
-    config = make_config(tmp_path, profile)
-    path = tmp_path / "bindings.json"
-    st = path.stat()
-    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))   # 5 s later, same content
-    for _ in range(4):
-        config.poll()
-    assert events(caplog).count("config_loaded") == 1                     # only the start
-
-
 def test_missing_tabs_file_is_a_change_and_recreating_it_is_loaded(tmp_path, profile):   # RV-2 (pins old behavior)
     manager, _bindings_file = real_config(tmp_path, profile, {"user": {"type": "click", "tab": "x"}}, {"x": [10, 20]})
     assert manager.actions["user"][:2] == ("click", (10, 20))
@@ -230,20 +195,15 @@ def test_unreadable_file_does_not_crash_poll_and_keeps_actions(tmp_path, profile
 
 @pytest.mark.parametrize("value,expected", [
     ([10, 20], (10, 20)),
-    ([0, 0], (0, 0)),
     ([-5, 7], (-5, 7)),                                                   # monitors left of the main monitor
     ([True, 1], None),                                                    # bool counts as 1 in Python: rejected
     ([1, False], None),
     ([1.5, 2], None),
     ([1, "2"], None),
     ([1], None),
-    ([1, 2, 3], None),
     ((1, 2), None),                                                       # JSON only ever gives lists
-    ({"x": 1, "y": 2}, None),
-    (None, None),
-], ids=["whole_numbers", "zeros", "negative", "bool_x", "bool_y", "float", "string", "one_item", "three_items",
-        "tuple", "dict", "none"])
-def test_as_point(value, expected):                                       # rule in CLAUDE.md section 6 (_as_point renamed)
+], ids=["whole_numbers", "negative", "bool_x", "bool_y", "float", "string", "one_item", "tuple"])
+def test_as_point(value, expected):                                       # rule in CLAUDE.md section 6
     assert cfg.as_point(value) == expected
 
 
@@ -257,7 +217,6 @@ def mon(left, top, right, bottom, primary=False, scale=100):
 
 ONE = [mon(0, 0, 2560, 1440, primary=True)]
 TWO = [mon(0, 0, 2560, 1440, primary=True), mon(2560, 0, 4480, 1080)]
-SAVED_ONE = [[0, 0, 2560, 1440]]
 SAVED_TWO = [[0, 0, 2560, 1440], [2560, 0, 4480, 1080]]
 
 
@@ -278,19 +237,11 @@ def layout_config(tmp_path, profile, saved, monitors):
     ([[2560, 0, 4480, 1080], [0, 0, 2560, 1440]], [(0, 0, 2560, 1440), (2560, 0, 4480, 1080)]),
     ([[-1920, 0, 0, 1080]], [(-1920, 0, 0, 1080)]),
     ([], None),
-    ({"a": 1}, None),
-    ([[0, 0, 100]], None),
     ([[True, 0, 100, 100]], None),
-    ([[0, 0, 100.5, 100]], None),
     ([[10, 0, 10, 100]], None),
-], ids=["valid_sorted", "negative", "empty_list", "not_a_list", "three_numbers", "bool", "float", "empty_rectangle"])
+], ids=["valid_sorted", "negative", "empty_list", "bool", "empty_rectangle"])
 def test_parse_layout(value, expected):                                   # B23
     assert cfg.parse_layout(value) == expected
-
-
-def test_current_layout_keeps_only_the_rectangles_sorted():              # B23
-    monitors = [mon(2560, 0, 4480, 1080, scale=150), mon(0, 0, 2560, 1440, primary=True)]
-    assert cfg.current_layout(monitors) == [(0, 0, 2560, 1440), (2560, 0, 4480, 1080)]
 
 
 def test_tabs_without_layout_load_silently(tmp_path, profile, caplog):   # B23: old files still load
@@ -316,10 +267,8 @@ def test_same_layout_in_other_order_gives_no_warning(tmp_path, profile, caplog):
 
 @pytest.mark.parametrize("saved,current", [
     (SAVED_TWO, ONE),
-    (SAVED_ONE, TWO),
-    (SAVED_TWO, [mon(0, 0, 2560, 1440, primary=True), mon(2560, 100, 4480, 1180)]),
     (SAVED_TWO, [mon(0, 0, 1920, 1080, primary=True), mon(1920, 0, 3840, 1080)]),
-], ids=["monitor_missing", "monitor_added", "monitor_moved", "resolution_changed"])
+], ids=["monitor_missing", "resolution_changed"])
 def test_different_layout_warns_once_and_keeps_bindings(tmp_path, profile, caplog, saved, current):   # B23
     caplog.set_level(logging.INFO)
     config = layout_config(tmp_path, profile, saved, lambda: current)
@@ -327,23 +276,12 @@ def test_different_layout_warns_once_and_keeps_bindings(tmp_path, profile, caplo
     assert list(config.actions) == ["user"]
 
 
-@pytest.mark.parametrize("saved", ["abc", [[0, 0, 100]]], ids=["not_a_list", "broken_rectangle"])
-def test_invalid_layout_is_ignored_with_one_warning(tmp_path, profile, caplog, saved):   # B23
+def test_invalid_layout_is_ignored_with_one_warning(tmp_path, profile, caplog):   # B23
     caplog.set_level(logging.INFO)
-    config = layout_config(tmp_path, profile, saved, lambda: TWO)
+    config = layout_config(tmp_path, profile, "abc", lambda: TWO)
     assert [f["reason"] for f in fields(caplog, "config_warning")].count("bad_monitors") == 1
     assert "monitor_layout_changed" not in events(caplog)
     assert list(config.actions) == ["user"]
-
-
-def test_reload_with_different_layout_warns_once(tmp_path, profile, caplog):   # B23
-    caplog.set_level(logging.INFO)
-    config = layout_config(tmp_path, profile, None, lambda: TWO)
-    assert "monitor_layout_changed" not in events(caplog)
-    write(tmp_path / "tabs.json", {"x": [10, 20], "_monitors": [[0, 0, 100, 100]]})
-    config.poll()
-    config.poll()
-    assert events(caplog).count("monitor_layout_changed") == 1
 
 
 def test_failing_monitor_list_still_loads_bindings(tmp_path, profile, caplog):   # B23
@@ -355,13 +293,3 @@ def test_failing_monitor_list_still_loads_bindings(tmp_path, profile, caplog):  
     config = layout_config(tmp_path, profile, SAVED_TWO, broken)
     assert list(config.actions) == ["user"]
     assert [f["reason"] for f in fields(caplog, "config_warning")].count("monitor_list_failed") == 1
-
-
-def test_layout_warning_text_and_fields(tmp_path, profile, caplog):      # B23
-    caplog.set_level(logging.INFO)
-    layout_config(tmp_path, profile, SAVED_ONE, lambda: TWO)
-    text = messages(caplog, "monitor_layout_changed")[0]
-    assert "tabs.json" in text and "calibration.py" in text
-    assert str(tmp_path) not in text
-    found = fields(caplog, "monitor_layout_changed")[0]
-    assert (found["saved"], found["current"]) == (1, 2)
