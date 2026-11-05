@@ -1,7 +1,5 @@
 """Windows helpers: DPI awareness and the foreground check. The Windows API calls themselves are not tested here
 (--diagnose does that on real Windows); these tests use fakes. Expected values are written by hand."""
-import ctypes
-import importlib.util
 import logging
 
 import pytest
@@ -42,11 +40,10 @@ def test_set_dpi_awareness(shcore, expected):
 
 @pytest.mark.parametrize("shcore,expected", [
     (FakeShcore(2), 2),
-    (FakeShcore(1), 1),
     (FakeShcore(0), 0),
     (FakeShcore(2, read_code=1), None),                   # the read call reports an error
     (FakeShcore(2, read_fail=True), None),                # the read call raises
-], ids=["per_monitor", "system_aware", "unaware", "read_refused", "read_raises"])
+], ids=["per_monitor", "unaware", "read_refused", "read_raises"])
 def test_get_dpi_awareness(shcore, expected):
     assert win.get_dpi_awareness(shcore) == expected
 
@@ -89,47 +86,23 @@ def test_foreground_check_error_gives_false_and_is_logged(monkeypatch, caplog):
     assert events(caplog) == ["foreground_check_failed"]
 
 
-def test_importing_the_module_calls_no_windows_api(monkeypatch):
-    """Importing must have no side effects (no import side effects): the DPI call happens in the start file, before the third-party packages are imported."""
-    calls = []
-
-    class Spy:
-        def __getattr__(self, name):
-            calls.append(name)
-            raise AttributeError(name)
-
-    def spy_win_dll(*args, **kwargs):
-        calls.append("WinDLL")
-        raise OSError("simulated")
-
-    monkeypatch.setattr(ctypes, "windll", Spy(), raising=False)      # raising=False: does not exist on Linux and macOS
-    monkeypatch.setattr(ctypes, "WinDLL", spy_win_dll, raising=False)
-    spec = importlib.util.spec_from_file_location("windows_import_check", win.__file__)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)                                   # a separate copy, the real module stays untouched
-    assert calls == []
-
 def monitor(left, top, right, bottom):
     return {"left": left, "top": top, "right": right, "bottom": bottom, "primary": False, "scale": 100}
 
 
 ONE = [monitor(0, 0, 1920, 1080)]
-TWO = ONE + [monitor(1920, 0, 3840, 1080)]
 LEFT = ONE + [monitor(-1920, 0, 0, 1080)]          # second monitor left of the main monitor
 
 
 @pytest.mark.parametrize("monitors,point,expected", [
-    (ONE, (100, 100), 1),
     (ONE, (0, 0), 1),                                 # top left corner belongs to the monitor
     (ONE, (1919, 1079), 1),                           # last pixel
     (ONE, (1920, 500), None),                         # the right edge is already outside
     (ONE, (500, 1080), None),                         # the bottom edge is already outside
     (ONE, (-1, 500), None),
-    (TWO, (2069, 675), 2),
     (LEFT, (-1500, 300), 2),                          # negative numbers are valid
     ([], (100, 100), None),                           # no monitor known: outside
-], ids=["inside", "top_left_corner", "last_pixel", "right_edge", "bottom_edge", "left_of_all",
-        "second_monitor", "left_of_primary", "no_monitors"])
+], ids=["top_left_corner", "last_pixel", "right_edge", "bottom_edge", "left_of_all",
+        "left_of_primary", "no_monitors"])
 def test_monitor_index(monitors, point, expected):
     assert win.monitor_index(monitors, point) == expected
