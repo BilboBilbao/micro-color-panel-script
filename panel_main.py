@@ -1,4 +1,4 @@
-"""Micro Color Panel -> extra key bindings for DaVinci Resolve (v0.3.42)
+"""Micro Color Panel -> extra key bindings for DaVinci Resolve (v0.3.43)
 
 Start:
   python panel_main.py                      normal operation
@@ -34,8 +34,7 @@ try:
     import pynput.keyboard     # noqa: F401  package check only (micropanel imports it lazily)
 except ImportError as _import_error:
     _text = missing_package_message(getattr(_import_error, "name", None), sys.version_info)
-    if sys.stdout is not None:                  # pythonw has no console
-        print(_text)
+    print(_text)
     sys.exit(1)
 
 if __name__ == "__main__":

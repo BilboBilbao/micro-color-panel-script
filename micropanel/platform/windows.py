@@ -30,7 +30,7 @@ def set_dpi_awareness(shcore=None):
     """Asks Windows for per-monitor DPI awareness (2) and reads back what the process has afterwards.
     Returns (awareness, result code of the set call), or (None, None) if this is not possible (not Windows).
     The set call reports a refusal only through its return value, it raises no error: once a process has an
-    awareness, Windows refuses every change. `shcore` is only passed in by the self-test."""
+    awareness, Windows refuses every change. `shcore` is only passed in by the tests."""
     try:
         if shcore is None:
             shcore = ctypes.windll.shcore

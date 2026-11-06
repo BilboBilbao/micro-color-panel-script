@@ -1,5 +1,5 @@
 """Micro Color Panel bindings for DaVinci Resolve."""
 from pathlib import Path
 
-__version__ = "0.3.42"
+__version__ = "0.3.43"
 BASE = Path(__file__).resolve().parent.parent      # the project folder (one level above this package)

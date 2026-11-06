@@ -102,15 +102,13 @@ def main(argv=None, dpi_state=(None, None)):
         sys.exit(diagnose.run(auto=args.auto, full=args.full, action_test=args.action_test, rotary=args.rotary))
 
     if sys.platform != "win32":                  # read at run time, never at import
-        if sys.stdout is not None:               # pythonw has no console
-            print(NOT_WINDOWS_MESSAGE.format(system=sys.platform))
+        print(NOT_WINDOWS_MESSAGE.format(system=sys.platform))
         sys.exit(1)
 
     try:
         setup(dpi_state, to_file=not args.no_log_file)
     except Exception as e:  # noqa: BLE001
-        if sys.stdout is not None:               # pythonw has no console
-            print(SETUP_FAILED_MESSAGE.format(error=anonymize(repr(e))))
+        print(SETUP_FAILED_MESSAGE.format(error=anonymize(repr(e))))
         sys.exit(1)
     try:
         run_program(args)
