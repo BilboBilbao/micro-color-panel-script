@@ -171,8 +171,9 @@ Throwaway script tools/led_test_stage2a.py, only output report 4, all 48 bits on
   - All 31 button combinations from the manual: no reaction in Resolve (manual confirmed).
   - `shift_up` / `shift_down` + each of the 12 knob presses: no reaction. A knob press **without** shift resets the control (native, so not free).
   - `shift_up` / `shift_down` + each of the 12 knob turns: the same reaction as without shift (not free).
-  - `shift_up` / `shift_down` + lift trackball, and `shift_down` + lift ring: nothing happens at all, not even the normal lift change.
-  - **Not tested:** `shift_up` + lift ring, and all gamma and gain trackballs and rings with a shift key.
+  - `shift_up` / `shift_down` + lift trackball, and `shift_down` + lift ring: nothing happens at all, not even the normal lift change. Rechecked in Phase 3 (F1) in three Resolve states (Color page with a node without window; power window selected with the Windows palette visible; Log mode): no reaction in any of them.
+  - Phase 3 (F1), same method: `shift_up` + lift ring and `shift_up` + gamma or gain trackball or ring react in the state with a selected power window. `shift_down` + gamma or gain trackball or ring react in the Sizing palette, in every state.
+  - Rule (decided by the author): a combination that reacts in any Resolve state is not free, because bindings must work in every state. Result: 3 of the 12 combinations are free (`shift_up` + lift trackball, `shift_down` + lift trackball, `shift_down` + lift ring). They cannot be bound before Phase 4 (F4) and are not in `free_bindings`.
   - Shift + a turning element cannot be used as a binding yet: `valid_binding_name` accepts buttons only (Phase 4).
 - Not decoded yet: battery/connection status and the rear Bluetooth button (only report ids 02, 05 and 06 were seen). Turning of knobs, trackballs and rings **is decoded since the C3 run and entered in the device profile since v0.3.5** (`channels`, see the report sections above).
 

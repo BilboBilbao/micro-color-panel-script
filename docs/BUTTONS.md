@@ -86,3 +86,16 @@ Generated from devices/micro_color_panel.json by tools/build_buttons_doc.py. Do 
 | gain_trackball | trackball | x | 0x05 | 26 | 24 bit | left | not yet |
 | gain_trackball | trackball | y | 0x05 | 30 | 24 bit | down | not yet |
 | gain_ring | ring | turn | 0x05 | 34 | 24 bit | right | not yet |
+
+## Not in the control map
+
+Known from the manual or the report descriptor, but not read by the program (details: docs/HARDWARE.md).
+
+| Item | Why it is not in the profile |
+|---|---|
+| Bluetooth button (rear) | A hardware button that appeared in no report; not needed. |
+| Battery and connection status | Not decoded. Resolve shows it, but only report ids 02, 05 and 06 were seen. |
+| Unused bits of report 0x02 | 12 of the 64 bits are not mapped. |
+| Channels 13 to 16 of report 0x06 | In the report descriptor, never used (always 0 in the recordings). |
+| Input report 0x08 | In the report descriptor, never seen. |
+| Coloured LEDs (output report 0x04) | Writing, not reading: the program never writes to the panel. |

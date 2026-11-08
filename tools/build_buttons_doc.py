@@ -16,6 +16,14 @@ BUTTON_TYPES = ("button", "knob_press")                  # a position (byte, bit
 MODIFIERS = ("shift_up", "shift_down")
 TYPE_WORDS = {"button": "button", "knob_press": "knob press", "knob_turn": "knob turn",
               "trackball": "trackball", "ring": "ring"}
+NOT_MAPPED = (                                           # known from the manual or the descriptor, not in the profile
+    ("Bluetooth button (rear)", "A hardware button that appeared in no report; not needed."),
+    ("Battery and connection status", "Not decoded. Resolve shows it, but only report ids 02, 05 and 06 were seen."),
+    ("Unused bits of report 0x02", "12 of the 64 bits are not mapped."),
+    ("Channels 13 to 16 of report 0x06", "In the report descriptor, never used (always 0 in the recordings)."),
+    ("Input report 0x08", "In the report descriptor, never seen."),
+    ("Coloured LEDs (output report 0x04)", "Writing, not reading: the program never writes to the panel."),
+)
 
 
 def free_combinations(name, free):
@@ -51,6 +59,10 @@ def render_buttons_md(data):
         for ch in c["channels"]:
             lines.append(f"| {c['name']} | {TYPE_WORDS[c['type']]} | {ch['axis']} | {ch['report']:#04x} | {ch['byte']} | "
                          f"{ch['width']} bit | {ch['positive']} | not yet |")
+    lines += ["", "## Not in the control map", "",
+              "Known from the manual or the report descriptor, but not read by the program (details: docs/HARDWARE.md).", "",
+              "| Item | Why it is not in the profile |", "|---|---|"]
+    lines += [f"| {item} | {reason} |" for item, reason in NOT_MAPPED]
     return "\n".join(lines) + "\n"
 
 
