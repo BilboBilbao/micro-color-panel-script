@@ -54,7 +54,7 @@ def rows(render):
 
 def test_summary_line_counts_the_controls(render):
     assert ("6 buttons and knob presses (decoded, bindable except the two shift keys), "
-            "3 rotary elements (decoded, not bindable yet), 3 free bindings.") in rows(render)
+            "3 rotary elements (4 channels, decoded, not bindable yet), 3 free bindings.") in rows(render)
 
 
 @pytest.mark.parametrize("row", [

@@ -32,11 +32,13 @@ def render_buttons_md(data):
     rotary = [c for c in controls if c["type"] not in BUTTON_TYPES]
     report = data["reports"]["buttons"]
     report = int(report, 0) if isinstance(report, str) else report
+    channels = sum(len(c["channels"]) for c in rotary)
 
     lines = ["# Controls of the Micro Color Panel", "",
              "Generated from devices/micro_color_panel.json by tools/build_buttons_doc.py. Do not edit by hand.", "",
              f"{len(pressed)} buttons and knob presses (decoded, bindable except the two shift keys), "
-             f"{len(rotary)} rotary elements (decoded, not bindable yet), {len(free)} free bindings.", "",
+             f"{len(rotary)} rotary elements ({channels} channels, decoded, not bindable yet), "
+             f"{len(free)} free bindings.", "",
              f"## Buttons and knob presses (report {report:#04x})", "",
              "| Name | Type | Byte | Bit | Bindable | Free combinations |", "|---|---|---|---|---|---|"]
     for c in pressed:

@@ -2,7 +2,7 @@
 
 Generated from devices/micro_color_panel.json by tools/build_buttons_doc.py. Do not edit by hand.
 
-52 buttons and knob presses (decoded, bindable except the two shift keys), 18 rotary elements (decoded, not bindable yet), 55 free bindings.
+52 buttons and knob presses (decoded, bindable except the two shift keys), 18 rotary elements (21 channels, decoded, not bindable yet), 55 free bindings.
 
 ## Buttons and knob presses (report 0x02)
 
